@@ -92,24 +92,41 @@ class AgentShieldPredictor:
 
     @property
     def ocr_engine(self):
-        """Lazily load RapidOCR engine."""
+        """Lazily load RapidOCR engine (same settings as src/data/preprocess_image.py)."""
         if self._ocr_engine is None:
             try:
                 from rapidocr_onnxruntime import RapidOCR
-                self._ocr_engine = RapidOCR()
+                self._ocr_engine = RapidOCR(det_limit_side_len=736)
             except ImportError:
                 print("[WARNING] rapidocr_onnxruntime not installed. OCR text extraction will be bypassed.")
                 self._ocr_engine = False
         return self._ocr_engine
+
+    @staticmethod
+    def _ocr_input(image_path: Union[str, Path]):
+        """RGB image downscaled to max 640 px, exactly as for the training data. Full-resolution OCR gives
+        different text that DeBERTa never saw (benign screenshots then scored 0.94 instead of 0.07)."""
+        try:
+            import numpy as np
+            from PIL import Image
+            with Image.open(image_path) as img:
+                img = img.convert("RGB")
+                w, h = img.size
+                if max(w, h) > 640:
+                    scale = 640 / max(w, h)
+                    img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+                return np.array(img)
+        except Exception:
+            return str(image_path)
 
     def extract_ocr_text(self, image_path: Union[str, Path]) -> str:
         """Extract embedded text from an image using RapidOCR."""
         if not self.ocr_engine:
             return ""
         try:
-            results, _ = self.ocr_engine(str(image_path))
+            results, _ = self.ocr_engine(self._ocr_input(image_path))
             if results:
-                extracted = " ".join([line[1] for line in results if line and len(line) > 1 and line[1]])
+                extracted = " ".join([line[1].strip() for line in results if line and len(line) > 1 and line[1]])
                 return extracted.strip()
             return ""
         except Exception as e:
