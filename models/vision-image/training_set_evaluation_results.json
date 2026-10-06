@@ -1,0 +1,81 @@
+{
+    "dataset": "train",
+    "total_samples": 2380,
+    "overall": {
+        "accuracy": 0.9785714285714285,
+        "precision": 0.9734299516908212,
+        "recall": 0.9956763434218654,
+        "f1": 0.9844274809160305,
+        "confusion_matrix": {
+            "TN": 717,
+            "FP": 44,
+            "FN": 7,
+            "TP": 1612
+        }
+    },
+    "by_category": {
+        "EIA": {
+            "type": "malicious",
+            "total_samples": 393,
+            "detected_malicious": 393,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VPI": {
+            "type": "malicious",
+            "total_samples": 115,
+            "detected_malicious": 115,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VWA_adv_embedded_img": {
+            "type": "malicious",
+            "total_samples": 228,
+            "detected_malicious": 228,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VWA_adv_screenshot": {
+            "type": "malicious",
+            "total_samples": 243,
+            "detected_malicious": 236,
+            "missed_malicious": 7,
+            "recall": 0.9711934156378601
+        },
+        "WebInject": {
+            "type": "malicious",
+            "total_samples": 401,
+            "detected_malicious": 401,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "embedded_img": {
+            "type": "benign",
+            "total_samples": 177,
+            "correct_benign": 177,
+            "false_alarm": 0,
+            "accuracy": 1.0
+        },
+        "popup": {
+            "type": "malicious",
+            "total_samples": 180,
+            "detected_malicious": 180,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "screenshot": {
+            "type": "benign",
+            "total_samples": 584,
+            "correct_benign": 540,
+            "false_alarm": 44,
+            "accuracy": 0.9246575342465754
+        },
+        "wasp": {
+            "type": "malicious",
+            "total_samples": 59,
+            "detected_malicious": 59,
+            "missed_malicious": 0,
+            "recall": 1.0
+        }
+    }
+}

@@ -1,0 +1,253 @@
+{
+    "model_name": "google/vit-base-patch16-224",
+    "device": "CPU",
+    "is_quick_test": false,
+    "hyperparameters": {
+        "learning_rate": 3e-05,
+        "num_train_epochs": 2,
+        "train_batch_size": 16,
+        "eval_batch_size": 16,
+        "gradient_accumulation_steps": 1,
+        "weight_decay": 0.01,
+        "fp16": false
+    },
+    "dataset_statistics": {
+        "train": {
+            "file": "data\\processed\\image\\train.jsonl",
+            "total_loaded": 2380,
+            "benign_count (0)": 761,
+            "malicious_count (1)": 1619,
+            "category_distribution": {
+                "embedded_img": 177,
+                "screenshot": 584,
+                "EIA": 393,
+                "popup": 180,
+                "VPI": 115,
+                "VWA_adv_embedded_img": 228,
+                "VWA_adv_screenshot": 243,
+                "wasp": 59,
+                "WebInject": 401
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        },
+        "validation": {
+            "file": "data\\processed\\image\\validation.jsonl",
+            "total_loaded": 286,
+            "benign_count (0)": 94,
+            "malicious_count (1)": 192,
+            "category_distribution": {
+                "embedded_img": 20,
+                "screenshot": 74,
+                "EIA": 52,
+                "popup": 23,
+                "VPI": 8,
+                "VWA_adv_embedded_img": 36,
+                "VWA_adv_screenshot": 22,
+                "wasp": 7,
+                "WebInject": 44
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        },
+        "test": {
+            "file": "data\\processed\\image\\test.jsonl",
+            "total_loaded": 296,
+            "benign_count (0)": 93,
+            "malicious_count (1)": 203,
+            "category_distribution": {
+                "embedded_img": 29,
+                "screenshot": 64,
+                "EIA": 51,
+                "popup": 13,
+                "VPI": 22,
+                "VWA_adv_embedded_img": 34,
+                "VWA_adv_screenshot": 18,
+                "wasp": 10,
+                "WebInject": 55
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        }
+    },
+    "validation_metrics": {
+        "accuracy": 0.9615384615384616,
+        "precision": 0.9502487562189055,
+        "recall": 0.9947916666666666,
+        "f1": 0.9720101781170484
+    },
+    "test_metrics": {
+        "overall": {
+            "accuracy": 0.9594594594594594,
+            "precision": 0.9441860465116279,
+            "recall": 1.0,
+            "f1": 0.9712918660287081,
+            "confusion_matrix": {
+                "TN": 81,
+                "FP": 12,
+                "FN": 0,
+                "TP": 203
+            },
+            "classification_report": {
+                "BENIGN (0)": {
+                    "precision": 1.0,
+                    "recall": 0.8709677419354839,
+                    "f1-score": 0.9310344827586207,
+                    "support": 93.0
+                },
+                "MALICIOUS (1)": {
+                    "precision": 0.9441860465116279,
+                    "recall": 1.0,
+                    "f1-score": 0.9712918660287081,
+                    "support": 203.0
+                },
+                "accuracy": 0.9594594594594594,
+                "macro avg": {
+                    "precision": 0.9720930232558139,
+                    "recall": 0.935483870967742,
+                    "f1-score": 0.9511631743936644,
+                    "support": 296.0
+                },
+                "weighted avg": {
+                    "precision": 0.9617221873035827,
+                    "recall": 0.9594594594594594,
+                    "f1-score": 0.958643431420201,
+                    "support": 296.0
+                }
+            }
+        },
+        "by_category": {
+            "EIA": {
+                "total_samples": 51,
+                "detected_malicious": 51,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "VPI": {
+                "total_samples": 22,
+                "detected_malicious": 22,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "VWA_adv_embedded_img": {
+                "total_samples": 34,
+                "detected_malicious": 34,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "VWA_adv_screenshot": {
+                "total_samples": 18,
+                "detected_malicious": 18,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "WebInject": {
+                "total_samples": 55,
+                "detected_malicious": 55,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "embedded_img": {
+                "total_samples": 29,
+                "correct_benign": 29,
+                "false_alarm": 0,
+                "accuracy": 1.0
+            },
+            "popup": {
+                "total_samples": 13,
+                "detected_malicious": 13,
+                "missed_malicious": 0,
+                "recall": 1.0
+            },
+            "screenshot": {
+                "total_samples": 64,
+                "correct_benign": 52,
+                "false_alarm": 12,
+                "accuracy": 0.8125
+            },
+            "wasp": {
+                "total_samples": 10,
+                "detected_malicious": 10,
+                "missed_malicious": 0,
+                "recall": 1.0
+            }
+        }
+    },
+    "training_metrics": {
+        "accuracy": 0.9785714285714285,
+        "precision": 0.9734299516908212,
+        "recall": 0.9956763434218654,
+        "f1": 0.9844274809160305,
+        "confusion_matrix": {
+            "TN": 717,
+            "FP": 44,
+            "FN": 7,
+            "TP": 1612
+        }
+    },
+    "training_by_category": {
+        "EIA": {
+            "type": "malicious",
+            "total_samples": 393,
+            "detected_malicious": 393,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VPI": {
+            "type": "malicious",
+            "total_samples": 115,
+            "detected_malicious": 115,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VWA_adv_embedded_img": {
+            "type": "malicious",
+            "total_samples": 228,
+            "detected_malicious": 228,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "VWA_adv_screenshot": {
+            "type": "malicious",
+            "total_samples": 243,
+            "detected_malicious": 236,
+            "missed_malicious": 7,
+            "recall": 0.9711934156378601
+        },
+        "WebInject": {
+            "type": "malicious",
+            "total_samples": 401,
+            "detected_malicious": 401,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "embedded_img": {
+            "type": "benign",
+            "total_samples": 177,
+            "correct_benign": 177,
+            "false_alarm": 0,
+            "accuracy": 1.0
+        },
+        "popup": {
+            "type": "malicious",
+            "total_samples": 180,
+            "detected_malicious": 180,
+            "missed_malicious": 0,
+            "recall": 1.0
+        },
+        "screenshot": {
+            "type": "benign",
+            "total_samples": 584,
+            "correct_benign": 540,
+            "false_alarm": 44,
+            "accuracy": 0.9246575342465754
+        },
+        "wasp": {
+            "type": "malicious",
+            "total_samples": 59,
+            "detected_malicious": 59,
+            "missed_malicious": 0,
+            "recall": 1.0
+        }
+    }
+}
