@@ -1,0 +1,126 @@
+{
+    "model_name": "microsoft/deberta-v3-base",
+    "device": "CPU",
+    "is_quick_test": false,
+    "hyperparameters": {
+        "learning_rate": 2e-05,
+        "num_train_epochs": 1,
+        "train_batch_size": 4,
+        "eval_batch_size": 8,
+        "gradient_accumulation_steps": 2,
+        "weight_decay": 0.01,
+        "max_length": 256,
+        "fp16": false
+    },
+    "dataset_statistics": {
+        "train": {
+            "file": "D:\\SEM 7\\AgentShield\\data\\processed\\combined\\train.jsonl",
+            "total_loaded": 4494,
+            "benign_count (0)": 2247,
+            "malicious_count (1)": 2247,
+            "domain_distribution": {
+                "pdf": 1600,
+                "web": 1606,
+                "image": 1288
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        },
+        "validation": {
+            "file": "D:\\SEM 7\\AgentShield\\data\\processed\\combined\\validation.jsonl",
+            "total_loaded": 1018,
+            "benign_count (0)": 550,
+            "malicious_count (1)": 468,
+            "domain_distribution": {
+                "web": 380,
+                "pdf": 400,
+                "image": 238
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        },
+        "test": {
+            "file": "D:\\SEM 7\\AgentShield\\data\\processed\\combined\\test.jsonl",
+            "total_loaded": 988,
+            "benign_count (0)": 543,
+            "malicious_count (1)": 445,
+            "domain_distribution": {
+                "image": 239,
+                "pdf": 400,
+                "web": 349
+            },
+            "dropped_samples": 0,
+            "drop_reasons": []
+        }
+    },
+    "validation_metrics": {
+        "accuracy": 0.8958742632612967,
+        "precision": 0.9248826291079812,
+        "recall": 0.8418803418803419,
+        "f1": 0.8814317673378076
+    },
+    "test_metrics": {
+        "overall": {
+            "accuracy": 0.9149797570850202,
+            "precision": 0.9434889434889435,
+            "recall": 0.8629213483146068,
+            "f1": 0.9014084507042254,
+            "confusion_matrix": {
+                "TN": 520,
+                "FP": 23,
+                "FN": 61,
+                "TP": 384
+            },
+            "classification_report": {
+                "BENIGN (0)": {
+                    "precision": 0.8950086058519794,
+                    "recall": 0.9576427255985267,
+                    "f1-score": 0.9252669039145908,
+                    "support": 543.0
+                },
+                "MALICIOUS (1)": {
+                    "precision": 0.9434889434889435,
+                    "recall": 0.8629213483146068,
+                    "f1-score": 0.9014084507042254,
+                    "support": 445.0
+                },
+                "accuracy": 0.9149797570850202,
+                "macro avg": {
+                    "precision": 0.9192487746704614,
+                    "recall": 0.9102820369565667,
+                    "f1-score": 0.9133376773094081,
+                    "support": 988.0
+                },
+                "weighted avg": {
+                    "precision": 0.9168443854556727,
+                    "recall": 0.9149797570850202,
+                    "f1-score": 0.9145209406771286,
+                    "support": 988.0
+                }
+            }
+        },
+        "by_domain": {
+            "image": {
+                "sample_count": 239,
+                "accuracy": 0.8451882845188284,
+                "precision": 0.9225806451612903,
+                "recall": 0.8511904761904762,
+                "f1": 0.8854489164086687
+            },
+            "pdf": {
+                "sample_count": 400,
+                "accuracy": 0.9075,
+                "precision": 0.945054945054945,
+                "recall": 0.864321608040201,
+                "f1": 0.9028871391076115
+            },
+            "web": {
+                "sample_count": 349,
+                "accuracy": 0.9713467048710601,
+                "precision": 0.9857142857142858,
+                "recall": 0.8846153846153846,
+                "f1": 0.9324324324324325
+            }
+        }
+    }
+}
