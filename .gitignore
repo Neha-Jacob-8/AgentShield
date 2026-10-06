@@ -7,8 +7,9 @@
 !models/deberta-common/training_args.bin
 models/*/checkpoints/
 
-# Evaluation / tuning outputs
+# Evaluation / tuning outputs, runtime audit logs and adaptive state
 outputs/
+logs/
 
 # Python
 __pycache__/
