@@ -1,0 +1,31 @@
+{
+  "_comment": "Runtime CATS configuration used by src/defense. Identical to cats_default.json except for the image profile, which applies the CATS work package's validated recommendation (CATS_DOCUMENTATION.md sec. 14-15: text alone must not reject an image; ViT threshold ~0.85). Confirmed on the VALIDATION split by src/defense/evaluate.py: benign images accepted 72 -> 79 of 94, blocked 16 -> 10, malicious accepted 0 -> 0.",
+  "embedding_backend": "sentence-transformers",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_device": null,
+  "chunk_chars": 600,
+  "max_chunks": 32,
+  "chunk_aggregation": "mean",
+  "cosine_floor": 0.0,
+  "cosine_ceil": 1.0,
+  "w_task_alignment": 0.7,
+  "w_reference_alignment": 0.3,
+  "fusion_mode": "noisy_or",
+  "w_text": 1.0,
+  "w_visual": 1.0,
+  "align_lambda": 0.5,
+  "min_text_chars": 1,
+  "accept_below": 0.3,
+  "reject_at_or_above": 0.7,
+  "no_evidence_decision": "SANITIZE",
+  "explain_high_threat": 0.5,
+  "explain_low_alignment": 0.3,
+  "explain_high_alignment": 0.6,
+  "profiles": {
+    "_comment": "Optional per-modality overrides (web / pdf / image / text). Empty = every modality uses the global values above. Example: \"image\": {\"w_visual\": 0.8}",
+    "image": {
+      "w_text": 0.4,
+      "reject_at_or_above": 0.85
+    }
+  }
+}
