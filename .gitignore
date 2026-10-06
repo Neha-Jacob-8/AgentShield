@@ -1,0 +1,23 @@
+# Datasets (raw + processed, ~3.9 GB) are kept outside the repository
+/data/
+
+# Trained model weights (too large for GitHub); configs, tokenizer and results are tracked
+*.safetensors
+*.bin
+!models/deberta-common/training_args.bin
+models/*/checkpoints/
+
+# Evaluation / tuning outputs
+outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
