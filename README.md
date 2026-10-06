@@ -176,7 +176,7 @@ to make final Accept / Sanitize / Reject decisions.
 | **Direct Image Vision Model (ViT)** | **TRAINED & EVALUATED** | `src/vision/train_vision.py` → `models/vision-image/` (Test F1: 97.13%, Recall: 100%, 0 FN) |
 | **Common DeBERTa Model (v3-base)** | **PIPELINE READY / TRAINED** | `src/training/train_deberta.py` → `models/deberta-common/` |
 | **CATS (Trust Scoring Engine)** | **IMPLEMENTED (baseline formula & thresholds, NOT yet validated)** | `src/cats/` — see `docs/CATS_DOCUMENTATION.md` |
-| **AgentShield Security Runtime** | **NOT YET IMPLEMENTED** | Future component |
+| **Defense & Integration (Security Runtime)** | **IMPLEMENTED & EVALUATED** | `src/defense/` — adaptive decision engine, content filtering, response sanitizer, runtime / CLI / HTTP service; see `docs/DEFENSE_INTEGRATION.md` |
 
 ---
 
@@ -213,7 +213,31 @@ The unified multi-modal text dataset (`data/processed/combined/`) features three
 
 ---
 
-## 8. Data and Model Weights
+## 8. Defense & Integration: the AgentShield Security Runtime
+
+`src/defense/` connects every component into the pipeline of the methodology: **interceptor →
+content filtering → detection (DeBERTa, ViT, signature library) → CATS → adaptive decision engine
+→ response sanitizer → secure delivery**, with an audit log. Full design, rules and evaluation:
+[`docs/DEFENSE_INTEGRATION.md`](docs/DEFENSE_INTEGRATION.md).
+
+```python
+from src.defense import AgentShieldRuntime, ToolResponse
+
+shield = AgentShieldRuntime(user_intent="Summarise the quarterly report.")
+delivery = shield.process(ToolResponse(content=pdf_text, modality="pdf", tool_name="pdf_reader"))
+print(delivery.action_taken, delivery.agent_view())
+```
+
+```bash
+python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
+python -m src.defense.demo --verbose                                              # a full agent session
+python -m src.defense.server --port 8765                                          # HTTP service
+python -m unittest tests.test_defense tests.test_cats                             # 109 tests
+```
+
+---
+
+## 9. Data and Model Weights
 
 The datasets (`data/`, ~3.9 GB) and the trained model weights are not stored in this repository because of GitHub's file-size limits. The model configs, tokenizer files and evaluation results are included.
 
