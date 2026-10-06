@@ -1,0 +1,31 @@
+{
+  "_comment": "BASELINE CATS configuration. Every value is a starting hypothesis chosen for explainability, NOT experimentally validated. Tune on the validation split, then freeze before reporting test results.",
+  "embedding_backend": "sentence-transformers",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_device": null,
+  "chunk_chars": 600,
+  "max_chunks": 32,
+  "chunk_aggregation": "mean",
+  "cosine_floor": 0.0,
+  "cosine_ceil": 1.0,
+  "w_task_alignment": 0.7,
+  "w_reference_alignment": 0.3,
+
+  "fusion_mode": "noisy_or",
+  "w_text": 1.0,
+  "w_visual": 1.0,
+  "align_lambda": 0.5,
+  "min_text_chars": 1,
+
+  "accept_below": 0.30,
+  "reject_at_or_above": 0.70,
+  "no_evidence_decision": "SANITIZE",
+
+  "explain_high_threat": 0.50,
+  "explain_low_alignment": 0.30,
+  "explain_high_alignment": 0.60,
+
+  "profiles": {
+    "_comment": "Optional per-modality overrides (web / pdf / image / text). Empty = every modality uses the global values above. Example: \"image\": {\"w_visual\": 0.8}"
+  }
+}
