@@ -34,7 +34,7 @@ Features:
 - Category-Wise Test Breakdown: EIA, VPI, VWA_adv_embedded_img, VWA_adv_screenshot,
   WebInject, popup, wasp, screenshot, embedded_img.
 - Hardware Adaptation: Supports CUDA GPU (FP16, gradient accumulation) or CPU fallback.
-- Best Model Checkpointing: Saves based on validation F1 score.
+- Best Model Checkpointing: keeps the epoch with the best validation F1 (load_best_model_at_end).
 - Saves model & image processor under models/vision-image/.
 """
 
@@ -368,7 +368,9 @@ def run_vision_training(args):
         "weight_decay": args.weight_decay,
         "logging_steps": args.logging_steps,
         "save_strategy": "epoch",
-        "load_best_model_at_end": False,
+        "load_best_model_at_end": True,             # keep the epoch with the best validation F1
+        "metric_for_best_model": "f1",
+        "greater_is_better": True,
         "save_total_limit": 1,
         "fp16": use_fp16,
         "gradient_checkpointing": False,
@@ -381,6 +383,12 @@ def run_vision_training(args):
         train_args_kwargs["eval_strategy"] = "epoch"
     elif "evaluation_strategy" in valid_params:
         train_args_kwargs["evaluation_strategy"] = "epoch"
+
+    # --no_cuda must reach the Trainer (otherwise it still trains on the GPU)
+    if "use_cpu" in valid_params:
+        train_args_kwargs["use_cpu"] = bool(args.no_cuda)
+    elif "no_cuda" in valid_params:
+        train_args_kwargs["no_cuda"] = bool(args.no_cuda)
 
     filtered_kwargs = {k: v for k, v in train_args_kwargs.items() if k in valid_params}
     training_args = TrainingArguments(**filtered_kwargs)
@@ -409,7 +417,7 @@ def run_vision_training(args):
 
     # Save Best Model & Processor
     logger.info(f"Saving best Vision Model & Processor to: {output_dir}")
-    model.save_pretrained(str(output_dir))
+    trainer.save_model(str(output_dir))                 # best epoch, loaded by the Trainer
     image_processor.save_pretrained(str(output_dir))
 
     # Test Set Evaluation
@@ -607,7 +615,8 @@ def parse_args():
     parser.add_argument("--logging_steps", type=int, default=20, help="Logging steps interval (default: 20)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
 
-    parser.add_argument("--fp16", action="store_true", default=True, help="Use FP16 mixed precision if CUDA is available")
+    parser.add_argument("--fp16", action=argparse.BooleanOptionalAction, default=True,
+                        help="FP16 mixed precision when CUDA is used (default: on; --no-fp16 turns it off)")
     parser.add_argument("--no_cuda", action="store_true", help="Force CPU mode")
 
     parser.add_argument("--max_train_samples", type=int, default=None, help="Optional max train samples")

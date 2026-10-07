@@ -20,7 +20,7 @@ Features:
 - Automatic Hardware Adaptation: Detects CUDA GPU (FP16, gradient accumulation/checkpointing)
   or falls back gracefully to CPU.
 - Dynamic Tokenization & Dynamic Padding (DataCollatorWithPadding).
-- Best Model Checkpointing: Saves based on validation F1 score.
+- Best Model Checkpointing: keeps the epoch with the best validation F1 (load_best_model_at_end).
 - Unbiased Test Evaluation: Evaluates test set strictly after training finishes.
 - Quick Test Support: Configurable subset options for fast verification smoke tests.
 """
@@ -317,7 +317,7 @@ def run_training_pipeline(args):
         low_cpu_mem_usage=True
     )
 
-    if args.gradient_checkpointing and torch.cuda.is_available():
+    if args.gradient_checkpointing and torch.cuda.is_available() and not args.no_cuda:
         model.gradient_checkpointing_enable()
 
     # --------------------------------------------------------------
@@ -340,10 +340,12 @@ def run_training_pipeline(args):
         "weight_decay": args.weight_decay,
         "logging_steps": args.logging_steps,
         "save_strategy": "epoch",
-        "load_best_model_at_end": False,
+        "load_best_model_at_end": True,             # keep the epoch with the best validation F1
+        "metric_for_best_model": "f1",
+        "greater_is_better": True,
         "save_total_limit": 1,
         "fp16": use_fp16,
-        "gradient_checkpointing": args.gradient_checkpointing if torch.cuda.is_available() else False,
+        "gradient_checkpointing": args.gradient_checkpointing if (torch.cuda.is_available() and not args.no_cuda) else False,
         "report_to": "none",
         "seed": args.seed
     }
@@ -358,6 +360,12 @@ def run_training_pipeline(args):
     elif "warmup_steps" in valid_params:
         total_steps = max(1, int(len(train_data) * args.num_train_epochs / (args.per_device_train_batch_size * args.gradient_accumulation_steps)))
         train_args_kwargs["warmup_steps"] = max(1, int(total_steps * args.warmup_ratio))
+
+    # --no_cuda must reach the Trainer (otherwise it still trains on the GPU)
+    if "use_cpu" in valid_params:
+        train_args_kwargs["use_cpu"] = bool(args.no_cuda)
+    elif "no_cuda" in valid_params:
+        train_args_kwargs["no_cuda"] = bool(args.no_cuda)
 
     filtered_kwargs = {k: v for k, v in train_args_kwargs.items() if k in valid_params}
     training_args = TrainingArguments(**filtered_kwargs)
@@ -600,7 +608,8 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
 
     # Optimization & Hardware
-    parser.add_argument("--fp16", action="store_true", default=True, help="Use FP16 mixed precision if CUDA is available")
+    parser.add_argument("--fp16", action=argparse.BooleanOptionalAction, default=True,
+                        help="FP16 mixed precision when CUDA is used (default: on; --no-fp16 turns it off)")
     parser.add_argument("--gradient_checkpointing", action="store_true", default=False, help="Enable gradient checkpointing (CUDA only)")
     parser.add_argument("--no_cuda", action="store_true", help="Force CPU mode even if CUDA is available")
 
