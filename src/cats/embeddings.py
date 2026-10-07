@@ -18,12 +18,16 @@ Backends
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
 import numpy as np
+
+# sentence-transformers imports transformers; keep it on PyTorch so an installed Keras 3 does not break it
+os.environ.setdefault("USE_TF", "0")
 
 from .config import CATSConfig
 
