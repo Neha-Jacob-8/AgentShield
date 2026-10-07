@@ -204,6 +204,17 @@ def print_confusion_matrix_explanation(cm):
     print("=" * 70 + "\n")
 
 
+def holds_trained_model(output_dir: Path) -> bool:
+    """True if output_dir contains model weights that did not come from a --quick_test run."""
+    if not (Path(output_dir) / "model.safetensors").exists():
+        return False
+    try:
+        with open(Path(output_dir) / "training_and_test_results.json", "r", encoding="utf-8") as f:
+            return not json.load(f).get("is_quick_test", False)
+    except (OSError, ValueError):
+        return True                       # weights without a readable results file: treat as real
+
+
 # ------------------------------------------------------------------
 # 3. Main Training & Evaluation Pipeline
 # ------------------------------------------------------------------
@@ -226,7 +237,14 @@ def run_training_pipeline(args):
 
     set_seed(args.seed)
 
-    output_dir = Path(args.output_dir)
+    project_root = Path(__file__).resolve().parent.parent.parent
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = project_root / ("outputs/quick_test/deberta" if args.quick_test else "models/deberta-common")
+    if args.quick_test and holds_trained_model(output_dir):
+        raise SystemExit(f"Refusing to overwrite the trained model in {output_dir} with a quick test. "
+                         f"Use another --output_dir (the --quick_test default is outputs/quick_test/deberta).")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # --------------------------------------------------------------
@@ -556,7 +574,6 @@ def run_training_pipeline(args):
 def parse_args():
     project_root = Path(__file__).resolve().parent.parent.parent
     default_data_dir = project_root / "data" / "processed" / "combined"
-    default_output_dir = project_root / "models" / "deberta-common"
 
     parser = argparse.ArgumentParser(
         description="AgentShield Reusable Common DeBERTa Prompt Injection Training Pipeline"
@@ -584,8 +601,9 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default=str(default_output_dir),
-        help="Directory to save the trained model, tokenizer, and metrics (default: models/deberta-common)"
+        default=None,
+        help="Directory to save the trained model, tokenizer, and metrics "
+             "(default: models/deberta-common; outputs/quick_test/deberta with --quick_test)"
     )
 
     # JSONL Schema Keys
