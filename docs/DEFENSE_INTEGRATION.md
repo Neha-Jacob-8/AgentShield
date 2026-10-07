@@ -418,7 +418,10 @@ regression; that `cats_runtime.json` only adds the image profile; and the HTTP s
 | Web (271 / 78) | 0.932 · 0.986 · 0.885 | 0.932 · 0.986 · 0.885 (pages are short) | 0.991 → 0.991 |
 | Image OCR (71 / 168) | **0.885 · 0.923 · 0.851** (kept) | 0.882 · 0.901 · 0.863 (not used for images) | 0.902 → 0.897 |
 
-The validation gain on PDF (0.869 → 0.947) replicated on test. For image OCR text windows did not
+Inputs are in the pipeline's format (document text without the user intent, as `predict_pipeline.py`
+and the runtime use it). The README's published PDF F1 of 0.903 was measured with the intent included
+in the input text, so the two rows are not directly comparable. The validation gain on PDF
+(0.869 → 0.947) replicated on test. For image OCR text windows did not
 help (validation +0.011, test −0.004), which supports keeping truncation for images.
 
 Signatures raised **0 false alarms on the 543 benign test documents**. On their own they catch only
