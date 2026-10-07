@@ -75,9 +75,12 @@ class ToolResponse:
             return self.content.decode("utf-8", errors="replace")
         if self.content is None:
             return ""
-        if not isinstance(self.content, str):
-            return json.dumps(self.content, ensure_ascii=False, default=str)
-        return self.content
+        t = self.content if isinstance(self.content, str) else json.dumps(self.content, ensure_ascii=False, default=str)
+        try:
+            t.encode("utf-8")
+        except UnicodeEncodeError:                   # lone surrogates (e.g. JSON "\ud800") cannot be hashed or logged
+            t = t.encode("utf-8", errors="replace").decode("utf-8")
+        return t
 
 
 @dataclass

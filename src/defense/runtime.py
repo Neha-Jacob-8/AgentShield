@@ -32,6 +32,7 @@ import argparse
 import functools
 import hashlib
 import json
+import re
 import sys
 import threading
 import time
@@ -396,13 +397,23 @@ class AgentShieldRuntime:
 # --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
+_PATH_LIKE = re.compile(r"^[^\s]+\.(txt|html?|pdf|md|json|csv|xml|log)$", re.I)
+
+
 def _read(value: str) -> str:
+    """CLI input: the contents of a file, or the argument itself as text."""
     try:
         p = Path(value)
         if p.is_file():
+            if p.read_bytes()[:5] == b"%PDF-":
+                raise SystemExit(f"{value} is a binary PDF. Pass the text the PDF tool extracted "
+                                 f"(AgentShield inspects tool output, not PDF files).")
             return p.read_text(encoding="utf-8", errors="replace")
     except (OSError, ValueError):
         pass
+    if _PATH_LIKE.match(value.strip()):
+        print(f"[AgentShield] warning: no file named {value!r}; analysing the argument itself as text.",
+              file=sys.stderr)
     return value
 
 
