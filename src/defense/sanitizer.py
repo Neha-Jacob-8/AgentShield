@@ -2,6 +2,7 @@
 Response Sanitizer (methodology section 4.7): remove adversarial segments, keep everything else.
 
   Step 1  segment the response      paragraphs -> lines -> sentences; fenced code blocks stay whole
+                                    (up to hard_split_chars; longer runs are split)
   Step 2  score every segment       max(DeBERTa probability, signature score)
   Step 3  classify                  < retain_below: retain | in between: flag (retained) | > remove_above: remove
   Step 4  reconstruct               retained segments in original order, original separators kept
@@ -114,7 +115,9 @@ def _hard_split(seg: Segment, limit: int) -> List[Segment]:
         cut = rest.rfind(" ", int(limit * 0.6), limit)
         cut = cut if cut > 0 else limit
         out.append(Segment(rest[:cut], sep))
-        rest, sep = rest[cut:].lstrip(), " "
+        nxt = rest[cut:]
+        rest = nxt.lstrip()
+        sep = nxt[: len(nxt) - len(rest)]           # the exact whitespace that was there ("" for a hard cut)
     if rest:
         out.append(Segment(rest, sep))
     return out
@@ -126,18 +129,21 @@ def segment_text(text: str, hard_split_chars: int = 400) -> List[Segment]:
     pos, pending_sep = 0, ""
 
     def emit(chunk: str, sep: str):
+        """Add the chunk as segment(s); return the whitespace that must precede the next segment."""
         stripped = chunk.strip()
         if stripped:
             lead = chunk[: len(chunk) - len(chunk.lstrip())]
             segs.extend(_hard_split(Segment(stripped, sep + lead), hard_split_chars))
-            return ""
+            return chunk[len(chunk.rstrip()):]      # trailing whitespace belongs to the next separator
         return sep + chunk
 
     for m in _TOKEN.finditer(text):
         if m.group("code") is not None:
             pending_sep = emit(text[pos:m.start()], pending_sep)
-            segs.append(Segment(m.group("code"), pending_sep))
-            pending_sep = ""
+            code = m.group("code")                       # an unclosed fence runs to the end of the text,
+            body = code.rstrip()                         # so long blocks are split like long text
+            segs.extend(_hard_split(Segment(body, pending_sep), hard_split_chars))
+            pending_sep = code[len(body):]
         else:
             pending_sep = emit(text[pos:m.start()], pending_sep)
             pending_sep += m.group("sep")
