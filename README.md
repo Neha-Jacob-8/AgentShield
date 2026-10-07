@@ -98,8 +98,9 @@ python src/training/train_deberta.py --quick_test \
     --train_path data/processed/image/train.jsonl \
     --validation_path data/processed/image/validation.jsonl \
     --test_path data/processed/image/test.jsonl \
-    --output_dir models/deberta-common
+    --output_dir outputs/quick_test/deberta
 ```
+A quick test writes to `outputs/quick_test/` and refuses to overwrite a trained model.
 
 ### Eventual Final Common Model Training Command:
 *(To be executed after PDF and Web preprocessing are complete and combined dataset is created)*:
@@ -130,7 +131,7 @@ The **Direct Image Vision Model** evaluates raw image pixels using a fine-tuned 
 
 ### Running Quick Verification Test (Smoke Test):
 ```bash
-python src/vision/train_vision.py --quick_test
+python src/vision/train_vision.py --quick_test        # writes to outputs/quick_test/vision
 ```
 
 ### Running Full Vision Model Fine-Tuning:
@@ -245,7 +246,7 @@ print(delivery.action_taken, delivery.agent_view())
 python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
 python -m src.defense.demo --verbose                                              # a full agent session
 python -m src.defense.server --port 8765                                          # HTTP service
-python -m unittest tests.test_defense tests.test_cats                             # 109 tests
+python -m unittest tests.test_defense tests.test_cats                             # 116 tests
 ```
 
 ---
@@ -263,9 +264,18 @@ models/deberta-common/model.safetensors     # fine-tuned DeBERTa-v3-base (~738 M
 models/vision-image/model.safetensors       # fine-tuned ViT (~343 MB)
 ```
 
-The CATS unit tests run without data or weights:
+The unit tests run without data or weights:
 
 ```bash
-python -m unittest tests.test_cats
+python -m unittest tests.test_defense tests.test_cats
 ```
 
+---
+
+## 10. Environment Notes
+
+- Install with `pip install -r requirements.txt` (Python 3.9 or newer).
+- **Training from the Hugging Face base models needs torch ≥ 2.6.** With older torch, recent `transformers` versions refuse to load the `microsoft/deberta-v3-base` weights. Inference with the fine-tuned models in `models/` works either way, because they are stored as safetensors.
+- **Apple-silicon Macs:** train the ViT with `--no_cuda` (CPU). The Apple GPU (MPS) backend of torch 2.5 fails in the ViT backward pass. Inference on MPS works.
+- `--quick_test` runs write to `outputs/quick_test/` and refuse to overwrite a trained model.
+- An installed Keras 3 does not interfere: every entry point keeps `transformers` on PyTorch (`USE_TF=0`).

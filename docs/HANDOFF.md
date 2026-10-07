@@ -1,5 +1,11 @@
 # CATS handoff (for the next team member)
 
+> **Status update (Defense & Integration).** The open items below have since been addressed in
+> `src/defense/` (see `docs/DEFENSE_INTEGRATION.md`): SANITIZE is implemented (response sanitizer with a
+> post-check) and every decision has a runtime policy (adaptive decision engine); long documents are scored
+> in windows (PDF test F1 0.860 → 0.947); web data is evaluated end to end. Use `AgentShieldRuntime` when you
+> need the full ACCEPT / SANITIZE / REJECT behaviour, not CATS alone. The rest of this note is unchanged.
+
 ## What you receive
 A working Trust & Analysis layer. Input: the DeBERTa/ViT threat probabilities for a tool response (plus the user's task).
 Output: risk, trust and an **ACCEPT / SANITIZE / REJECT** decision with an explanation. See `CATS_DOCUMENTATION.md` for the maths.

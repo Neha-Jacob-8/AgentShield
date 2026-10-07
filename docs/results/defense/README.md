@@ -5,7 +5,7 @@ Every setting was chosen on the **validation** files; the **test** files were pr
 
 | File | Split | What it contains |
 |---|---|---|
-| `test_report.json` | test | **Final results**: detection, text-tool decisions, images, adaptive defense, sanitizer (`docs/DEFENSE_INTEGRATION.md` §10). The default-row key was re-labelled after the run (see its `note`); numbers unchanged. |
+| `test_report.json` | test | **Final results**: detection, text-tool decisions, images, adaptive defense, sanitizer (`docs/DEFENSE_INTEGRATION.md` §10). The parts that use the sanitizer were re-run after the final audit's segmentation fix with unchanged settings (see its `note`). |
 | `test_images_cats_default.json` | test | Image baseline with the team's original `cats_default.json` ("before" row for images) |
 | `validation_report_run1.json` | validation | First run: detection and adaptive parts are valid. Its runtime part is **superseded**: image-OCR records were run through the text path and the lenient variant was mis-derived (both fixed). |
 | `validation_report_run2.json` | validation | Runtime, images and sanitizer with the fixes (spec post-check default at the time) |

@@ -41,7 +41,7 @@ src/cats/integration.py     adapters for predict_pipeline output; CATSAgentShiel
 src/cats/evaluate.py        metrics, baselines vs CATS, confusion matrices, threshold sweep
 src/cats/demo.py            the 12 required scenarios (MOCK model outputs)
 configs/cats_default.json   baseline configuration
-tests/test_cats.py          53 unit / integration tests
+tests/test_cats.py          58 unit / integration tests
 docs/CATS_DOCUMENTATION.md  this file
 ```
 **Modified (additive only)**
@@ -144,7 +144,7 @@ These numbers are placeholders chosen for symmetry around the classifiers' 0.5 c
 
 ```bash
 pip install -r requirements.txt                     # now includes sentence-transformers
-python -m unittest tests.test_cats -v               # 53 tests, offline, no model weights needed
+python -m unittest tests.test_cats -v               # 58 tests, offline, no model weights needed
 python -m src.cats.demo                             # 12 scenarios, real Sentence-Transformer (downloads model once)
 python -m src.cats.demo --embedder lexical --json   # offline stand-in + full explanations
 
@@ -188,7 +188,7 @@ Input: `domain="pdf"`, `text_threat=0.82` (mock), intent `"Summarize the financi
 
 ## 11. Test results
 
-**Unit/integration tests:** 53 / 53 pass (`python -m unittest tests.test_cats`). They check the exact formula values, monotonicity/bounds, threshold boundaries, OCR/missing-signal handling, config validation, chunking, the evaluation metrics, a stub of the Sentence-Transformers call contract, and the real `AgentShieldPredictor` using fake models.
+**Unit/integration tests:** 58 / 58 pass (`python -m unittest tests.test_cats`). They check the exact formula values, monotonicity/bounds, threshold boundaries, OCR/missing-signal handling, config validation, chunking, the evaluation metrics, a stub of the Sentence-Transformers call contract, and the real `AgentShieldPredictor` using fake models.
 
 **12 required scenarios** — `T`/`V` are **hand-written MOCK values**, and similarity comes from the **lexical stand-in** (this sandbox had no network or torch). They demonstrate CATS logic, not model accuracy.
 
@@ -236,7 +236,7 @@ For reference, the *existing* saved results (from your README/JSON, not measured
 * Noisy-OR combines signals as if independent; DeBERTa (on OCR text) and ViT see the same image, so they are not.
 * The misalignment term is heuristic; an attacker who mimics the task gets no uplift (by design), so detection then rests on `T`/`V` alone.
 * Image pixels are not embedded (OCR text only); image-text alignment (e.g. CLIP) is future work.
-* `SANITIZE` is returned as a decision but **no sanitiser is implemented**.
+* `SANITIZE` is returned as a decision but **no sanitiser is implemented**. (CATS itself only decides; the Defense & Integration layer in `src/defense/` implements the sanitizer.)
 * PDF DeBERTa training text often contained `User intent: …`, while `predict_pdf` historically scored `Document content:` only. `predict_pdf(user_intent=…)` / `assess_pdf(text_model_sees_intent=True)` can reproduce the training format; default behaviour is unchanged. Worth checking which is better on validation data.
 * `all-MiniLM-L6-v2` is a general English model; multilingual or domain-specific content may need another model (config option).
 * A real-model run needs `sentence-transformers` (first use downloads the model).
