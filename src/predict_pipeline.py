@@ -12,6 +12,7 @@ import os
 os.environ["USE_TF"] = "0"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 os.environ["USE_TORCH"] = "1"
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import re
 import sys
