@@ -10,8 +10,9 @@ Endpoints
   POST /v1/inspect           -> SecureDelivery JSON. Body: ToolResponse fields, e.g.
                                 {"content": "...", "modality": "web", "tool_name": "web_search",
                                  "source_url": "https://...", "user_intent": "..."}
-                                Images: {"modality": "image", "image_path": "/path/on/server.png"}
-                                    or  {"modality": "image", "image_base64": "<png/jpg bytes>"}
+                                Images: {"modality": "image", "image_base64": "<png/jpg bytes>"}
+                                    or  {"modality": "image", "image_path": "/path/on/server.png"}
+                                    (server paths only on 127.0.0.1 / localhost, or with --allow_image_paths)
   POST /v1/session           -> start a new agent session. Body: {"user_intent": "..."} (optional)
 """
 
@@ -31,7 +32,10 @@ from .runtime import RUNTIME_CATS_CONFIG, AgentShieldRuntime
 MAX_BODY_BYTES = 20 * 1024 * 1024
 
 
-def make_handler(runtime: AgentShieldRuntime, include_analysis: bool = True):
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def make_handler(runtime: AgentShieldRuntime, include_analysis: bool = True, allow_image_paths: bool = True):
     class Handler(BaseHTTPRequestHandler):
         server_version = "AgentShield/1.0"
 
@@ -44,7 +48,10 @@ def make_handler(runtime: AgentShieldRuntime, include_analysis: bool = True):
             self.wfile.write(body)
 
         def _body(self) -> Optional[dict]:
-            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                n = 0
             if n <= 0 or n > MAX_BODY_BYTES:
                 self._send(413 if n > MAX_BODY_BYTES else 400, {"error": "missing or too large JSON body"})
                 return None
@@ -80,6 +87,9 @@ def make_handler(runtime: AgentShieldRuntime, include_analysis: bool = True):
                 runtime.new_session(data.get("user_intent"))
                 self._send(200, {"status": "new session", "user_intent": runtime.user_intent})
                 return
+            if "image_path" in data and not allow_image_paths:
+                self._send(403, {"error": "image_path is disabled on this server; send image_base64 instead"})
+                return
             tmp = None
             try:
                 if "image_base64" in data:
@@ -99,9 +109,22 @@ def make_handler(runtime: AgentShieldRuntime, include_analysis: bool = True):
     return Handler
 
 
-def serve(runtime: AgentShieldRuntime, host: str = "127.0.0.1", port: int = 8765,
-          include_analysis: bool = True) -> ThreadingHTTPServer:
-    return ThreadingHTTPServer((host, port), make_handler(runtime, include_analysis))
+def serve(runtime: AgentShieldRuntime, host: str = "127.0.0.1", port: int = 8765, include_analysis: bool = True,
+          allow_image_paths: Optional[bool] = None) -> ThreadingHTTPServer:
+    """allow_image_paths=None: allowed only when bound to a loopback address (clients are local)."""
+    if allow_image_paths is None:
+        allow_image_paths = host in LOOPBACK_HOSTS
+    return ThreadingHTTPServer((host, port), make_handler(runtime, include_analysis, allow_image_paths))
+
+
+def warm_up(rt: AgentShieldRuntime) -> None:
+    """Load DeBERTa, the ViT and the sentence embedder now, so the first request is not slow."""
+    try:
+        rt.text_threat("warm up", "text")
+        _ = rt.predictor.vision_predictor
+        rt.cats.embedder.encode(["warm up"])
+    except Exception as e:                          # e.g. weights missing: requests will fail closed
+        print(f"[AgentShield] warm-up failed ({type(e).__name__}: {e}); requests will be rejected until fixed.")
 
 
 def main(argv=None):
@@ -115,10 +138,15 @@ def main(argv=None):
     ap.add_argument("--audit_log", default="logs/agentshield_audit.jsonl")
     ap.add_argument("--state", help="persist adaptive source reputation here")
     ap.add_argument("--no_analysis", action="store_true", help="return only the delivery fields")
+    ap.add_argument("--allow_image_paths", action="store_true",
+                    help="accept image_path (a file on this server) from clients on a non-loopback host")
+    ap.add_argument("--no_warmup", action="store_true", help="load the models on the first request instead")
     a = ap.parse_args(argv)
     rt = AgentShieldRuntime(config=load_defense_config(a.config), cats_config=load_config(a.cats_config),
                             audit_log=a.audit_log, state_path=a.state)
-    httpd = serve(rt, a.host, a.port, not a.no_analysis)
+    if not a.no_warmup:
+        warm_up(rt)
+    httpd = serve(rt, a.host, a.port, not a.no_analysis, True if a.allow_image_paths else None)
     print(f"AgentShield listening on http://{a.host}:{a.port}  (audit log: {a.audit_log})")
     try:
         httpd.serve_forever()
