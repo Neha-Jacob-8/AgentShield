@@ -226,6 +226,7 @@ class AgentShieldRuntime:
         if dom == "image":
             visual = float(self.predictor.vision_predictor.predict(resp.image_path)["malicious_probability"])
             raw_text = self.predictor.extract_ocr_text(resp.image_path)
+            analysis["ocr_text"] = raw_text
         else:
             raw_text = ic.raw_content
             if not raw_text.strip():
