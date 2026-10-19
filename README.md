@@ -243,14 +243,14 @@ print(delivery.action_taken, delivery.agent_view())
 ```
 
 ```bash
-python -m src.defense.api                                                         # demo console + FastAPI service: http://127.0.0.1:8000
+python -m src.defense.api                                                         # demo console (upload a file) + FastAPI service: http://127.0.0.1:8000
 python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
 python -m src.defense.demo --verbose                                              # a full agent session
 python -m src.defense.server --port 8765                                          # HTTP service
-python -m unittest tests.test_api tests.test_defense tests.test_cats             # 126 tests
+python -m unittest tests.test_api tests.test_defense tests.test_cats             # 131 tests
 ```
 
-To present the project, follow [`docs/DEMO.md`](docs/DEMO.md): a guided 15-step demo in the browser console, a fallback replay mode, and answers to likely examiner questions.
+To present the project, follow [`docs/DEMO.md`](docs/DEMO.md). You drop a PDF, web page, screenshot or email into the browser console and watch each pipeline step inspect it. The guide includes ready-made samples in [`demo_samples/`](demo_samples), a 7-minute run order, a fallback replay mode, and answers to likely examiner questions.
 
 ---
 
@@ -270,7 +270,7 @@ models/vision-image/model.safetensors       # fine-tuned ViT (~343 MB)
 The unit tests run without data or weights:
 
 ```bash
-python -m unittest tests.test_defense tests.test_cats
+python -m unittest tests.test_api tests.test_defense tests.test_cats
 ```
 
 ---
