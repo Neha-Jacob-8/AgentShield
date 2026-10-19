@@ -2,7 +2,7 @@
 
 AgentShield is a security middleware designed to analyze external tool responses (Image, PDF, Web) and detect indirect prompt injection attacks before they reach autonomous AI agents.
 
-**▶ [Watch the demo](https://neha-jacob-8.github.io/AgentShield/#tour)**: the guided tour starts by itself and plays real results of the models, recorded. To inspect your own files, run the live console ([`docs/DEMO.md`](docs/DEMO.md)).
+**Demo:** [neha-jacob-8.github.io/AgentShield](https://neha-jacob-8.github.io/AgentShield/#tour). A guided tour starts by itself and plays recorded results of the real models. To inspect your own files, run the live console ([`docs/DEMO.md`](docs/DEMO.md)).
 
 ---
 
