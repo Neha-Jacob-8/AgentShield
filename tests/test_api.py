@@ -5,6 +5,7 @@ python -m unittest tests.test_api -v
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -60,6 +61,8 @@ class TestDocuments(unittest.TestCase):
         self.assertGreater(read_pdf(long).page_count, 1)
 
     def test_samples_registry(self):
+        self.assertEqual({s.modality for s in SAMPLES}, {"pdf", "web", "image"})     # the three kinds of tool output
+        self.assertEqual({s.modality for s in SAMPLES if s.in_repo}, {"pdf", "web", "image"})
         for s in SAMPLES:
             if s.in_repo:
                 self.assertTrue((ROOT / "demo_samples" / s.filename).exists(), s.filename)
@@ -98,16 +101,19 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(web["explain"]["hidden"][0]["reason"], "display:none")
         self.assertNotIn("customer list", web["delivery"]["secure_content"])
         self.assertIn("2. Pin your base image", web["delivery"]["secure_content"])     # headings kept whole
-        txt = self.c.post("/api/sample/supplier-email").json()
-        self.assertIn("⟨ZWSP⟩", txt["document"]["text"])
-        self.assertIsNotNone(txt["explain"]["unicode"])
-        self.assertEqual(txt["delivery"]["analysis"]["source_key"], "tool:email_reader")
+        inv = self.c.post("/api/sample/supplier-invoice").json()
+        self.assertEqual(inv["document"]["kind"], "web")
+        self.assertIn("Ig⟨ZWSP⟩nore", inv["document"]["text"])                  # invisible characters marked
+        self.assertIsNotNone(inv["explain"]["unicode"])
+        self.assertNotIn("\u200b", inv["delivery"]["secure_content"])
+        self.assertEqual(self.c.post("/api/sample/shop-page").json()["document"]["kind"], "image")
 
     def test_upload_files(self):
         r = self.c.post("/api/upload", files={"file": ("leaflet.pdf", clinic_report_pdf(), "application/pdf")})
         self.assertEqual(r.json()["delivery"]["action_taken"], "SANITIZE")
         r = self.c.post("/api/upload", files={"file": ("shot.png", b"\x89PNG not really", "image/png")})
         self.assertEqual(r.json()["document"]["kind"], "image")
+        self.assertNotIn(tempfile.gettempdir(), r.text)                  # the server's temporary path is not shown
         r = self.c.post("/api/upload", files={"file": ("notes.txt", b"Quarterly revenue grew 14%.", "text/plain")})
         self.assertEqual(r.json()["delivery"]["action_taken"], "ACCEPT")
         self.assertEqual(self.c.post("/api/upload", files={"file": ("empty.txt", b"", "text/plain")}).status_code, 400)

@@ -51,7 +51,7 @@ from pydantic import BaseModel
 from .demo_samples import SAMPLE_BY_ID, SAMPLES
 from .documents import (decode_text, image_preview, ocr_boxes, pdf_highlights, read_docx, read_pdf,
                         sniff_kind)
-from .filters import filter_content
+from .filters import filter_content, filter_html
 from .interceptor import ToolResponse
 from .policy import AdaptiveState
 from .runtime import RUNTIME_CATS_CONFIG, AgentShieldRuntime, SecureDelivery
@@ -64,11 +64,12 @@ MAX_SESSIONS = 100                       # browser tabs kept; the least recently
 KEEP_RESULTS = 30                        # full results kept per session for reopening (page images are large)
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{8,64}")
 PROXY_HEADERS = ("cf-connecting-ip", "x-forwarded-for", "forwarded")
-RECORD_SEQUENCE = ["quarterly-report", "docker-guide", "supplier-email", "clinic-report", "clinic-report",
-                   "shop-screenshot", "attack-screenshot", "reset", "benchmark-attack"]     # the order in docs/DEMO.md
+RECORD_SEQUENCE = ["quarterly-report", "docker-guide", "supplier-invoice", "clinic-report", "clinic-report",
+                   "shop-page", "checkout-attack", "reset", "benchmark-attack"]     # the order in docs/DEMO.md
 SAMPLE_SOURCES = {"clinic-report": "https://files.riverside-cardiology.example/leaflets/PL-114.pdf",
                   "quarterly-report": "https://ir.northwind.example/results/q3-2026.pdf",
                   "docker-guide": "https://devops-weekly.example/smaller-docker-images",
+                  "supplier-invoice": "https://portal.northwind-supplies.example/invoices/INV-2291",
                   "benchmark-attack": "https://news-archive.example/miami-bowl-ban.pdf"}
 INVISIBLE_NAMES = {"​": "ZWSP", "‌": "ZWNJ", "‍": "ZWJ", "⁠": "WJ", "﻿": "BOM",
                    "­": "SHY", "‪": "LRE", "‫": "RLE", "‬": "PDF", "‭": "LRO",
@@ -203,6 +204,9 @@ class DemoState:
             elif kind == "web":
                 html = decode_text(data)
                 doc["html"] = html
+                visible = filter_html(html).visible_text
+                if _INVISIBLE.search(visible):                  # show where the invisible characters are
+                    doc["text"] = mark_invisible(visible)
                 resp = ToolResponse(content=html, modality="web", tool_name="web_fetch", source_url=source_url)
             elif kind == "image":
                 fd, tmp = tempfile.mkstemp(suffix=Path(filename).suffix or ".png")
@@ -370,7 +374,7 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
         for s in SAMPLES:
             available = (s.id in recorded) if recorded is not None else (s.in_repo or s.build() is not None)
             available = available and (s.in_repo or not far)           # the datasets stay on this machine
-            out.append({"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect,
+            out.append({"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect, "modality": s.modality,
                         "filename": s.filename, "kind": s.filename.rsplit(".", 1)[-1], "available": available})
         return out
 
@@ -478,8 +482,8 @@ def record_steps(ds: DemoState, public: bool = False, verbose: bool = True) -> D
         except HTTPException as e:
             if verbose:
                 print(f"  skipped  {sid:<20} ({e.detail})")
-    samples = [{"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect, "filename": s.filename,
-                "kind": s.filename.rsplit(".", 1)[-1]} for s in SAMPLES if s.in_repo or not public]
+    samples = [{"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect, "modality": s.modality,
+                "filename": s.filename, "kind": s.filename.rsplit(".", 1)[-1]} for s in SAMPLES if s.in_repo or not public]
     return {"recorded_on": time.strftime("%Y-%m-%d"), "samples": samples, "steps": steps}
 
 
