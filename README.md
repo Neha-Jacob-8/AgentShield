@@ -2,6 +2,8 @@
 
 AgentShield is a security middleware designed to analyze external tool responses (Image, PDF, Web) and detect indirect prompt injection attacks before they reach autonomous AI agents.
 
+**▶ [Watch the demo](https://neha-jacob-8.github.io/AgentShield/#tour)**: the guided tour starts by itself and plays real results of the models, recorded. To inspect your own files, run the live console ([`docs/DEMO.md`](docs/DEMO.md)).
+
 ---
 
 ## 1. Core Architecture — Dual-Branch Multi-Modal Defense
@@ -247,7 +249,7 @@ python -m src.defense.api                                                       
 python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
 python -m src.defense.demo --verbose                                              # a full agent session
 python -m src.defense.server --port 8765                                          # HTTP service
-python -m unittest tests.test_api tests.test_defense tests.test_cats             # 134 tests
+python -m unittest tests.test_api tests.test_defense tests.test_cats             # 136 tests
 ```
 
 `deploy/public_link.sh` shares the console from the laptop through a free public https link. To present the project, follow [`docs/DEMO.md`](docs/DEMO.md). You drop a PDF, web page, screenshot or email into the browser console and watch each pipeline step inspect it. The guide includes ready-made samples in [`demo_samples/`](demo_samples), a 7-minute run order, a fallback replay mode, and answers to likely examiner questions.

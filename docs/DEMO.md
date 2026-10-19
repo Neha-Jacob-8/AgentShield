@@ -105,6 +105,24 @@ repeated attacks through one tool raise that tool's defense level. Each sample c
   - Press **Reset**.
   - Open Finder at `demo_samples/` next to the browser so the files can be dragged in.
 
+## The online demo (GitHub Pages)
+
+**https://neha-jacob-8.github.io/AgentShield/#tour** opens the console and starts a guided tour by itself. The
+tour plays the four samples in `demo_samples/` in the order of this guide, plus "Send it again".
+
+- It plays a recording of the real models, made with `--record --public`, in the browser. It needs no server
+  and is always online. Uploads and paste are not available there; the page says so.
+- Any click hands control to the visitor. **▶ Guided tour** on the home page starts the tour again.
+- `#tour` also works on the live console, for example `http://127.0.0.1:8000/#tour`. There the tour includes
+  the three dataset samples.
+- To update it after a change to the console or the models, re-record and push:
+
+  ```bash
+  python -m src.defense.api --record deploy/pages/recording.json --public
+  ```
+
+  The workflow `.github/workflows/pages.yml` publishes the page on every push that touches it.
+
 ## Share a public link
 
 To let others use the console from their own devices, for example examiners or teammates, run:
