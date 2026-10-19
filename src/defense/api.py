@@ -4,6 +4,7 @@ AgentShield FastAPI service with an interactive demo console.
   python -m src.defense.api                                       # http://127.0.0.1:8000
   python -m src.defense.api --record outputs/demo/recording.json  # run every sample once and save it
   python -m src.defense.api --replay outputs/demo/recording.json  # serve the saved run (no models needed)
+  python -m src.defense.api --record deploy/pages/recording.json --public   # the recording GitHub Pages plays
 
 Console endpoints                         Headless API (same contract as src/defense/server.py)
   GET  /                  console page      POST /v1/inspect     inspect one tool response
@@ -36,6 +37,7 @@ import json
 import re
 import tempfile
 import threading
+import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -446,26 +448,41 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
     return app
 
 
-def record(path: str, cats_config: str, embedder: Optional[str] = None) -> None:
-    """Run every sample with the real models in the demo guide's order (the clinic leaflet twice) and save it
-    for --replay."""
-    from src.cats import load_config
-    cfg = load_config(cats_config)
-    if embedder:
-        cfg.embedding_backend = embedder
-    ds = DemoState(AgentShieldRuntime(cats_config=cfg))
+def record_steps(ds: DemoState, public: bool = False, verbose: bool = True) -> Dict[str, Any]:
+    """Run the samples in the demo guide's order (the clinic leaflet twice). public: only the samples in
+    demo_samples/, never the ones built from the local datasets (for a recording that is published)."""
+    sequence = [s for s in RECORD_SEQUENCE if s == "reset" or not public or SAMPLE_BY_ID[s].in_repo]
+    while sequence and sequence[-1] == "reset":
+        sequence.pop()
     steps = []
-    for sid in RECORD_SEQUENCE:
+    for sid in sequence:
         if sid == "reset":
             ds.reset()
             continue
         try:
             steps.append(ds.run_sample(sid))
-            print(f"  recorded {sid:<20} -> {steps[-1]['delivery']['action_taken']}")
+            if verbose:
+                print(f"  recorded {sid:<20} -> {steps[-1]['delivery']['action_taken']}")
         except HTTPException as e:
-            print(f"  skipped  {sid:<20} ({e.detail})")
+            if verbose:
+                print(f"  skipped  {sid:<20} ({e.detail})")
+    samples = [{"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect, "filename": s.filename,
+                "kind": s.filename.rsplit(".", 1)[-1]} for s in SAMPLES if s.in_repo or not public]
+    return {"recorded_on": time.strftime("%Y-%m-%d"), "samples": samples, "steps": steps}
+
+
+def record(path: str, cats_config: str, embedder: Optional[str] = None, public: bool = False) -> None:
+    """Record the samples with the real models and save them for --replay (or for GitHub Pages)."""
+    from src.cats import load_config
+    cfg = load_config(cats_config)
+    if embedder:
+        cfg.embedding_backend = embedder
+    ds = DemoState(AgentShieldRuntime(cats_config=cfg))
+    record_steps(ds, public, verbose=False)        # untimed first pass: loads the models and warms every code path
+    ds.reset()
+    rec = record_steps(ds, public)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps({"steps": steps}, default=str), encoding="utf-8")
+    Path(path).write_text(json.dumps(rec, default=str), encoding="utf-8")
     print(f"recording written to {path}")
 
 
@@ -480,10 +497,11 @@ def main(argv=None):
     ap.add_argument("--audit_log", default="logs/agentshield_audit.jsonl")
     ap.add_argument("--no_warmup", action="store_true")
     ap.add_argument("--public", action="store_true",
-                    help="treat every request as remote (sharing through a tunnel): no local files, no dataset samples")
+                    help="treat every request as remote (sharing through a tunnel): no local files, no dataset samples; "
+                         "with --record: record only the samples in demo_samples/")
     a = ap.parse_args(argv)
     if a.record:
-        record(a.record, a.cats_config, a.embedder)
+        record(a.record, a.cats_config, a.embedder, a.public)
         return
     import uvicorn
     if a.replay:
