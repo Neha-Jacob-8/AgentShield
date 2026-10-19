@@ -91,6 +91,16 @@ class IntentRequest(BaseModel):
     user_intent: Optional[str] = None
 
 
+def _replace_text(obj: Any, old: str, new: str) -> Any:
+    if isinstance(obj, str):
+        return obj.replace(old, new)
+    if isinstance(obj, dict):
+        return {k: _replace_text(v, old, new) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_replace_text(v, old, new) for v in obj]
+    return obj
+
+
 def is_remote(request: Request) -> bool:
     """True when the request came through a tunnel or proxy (a public link) rather than from this machine."""
     return any(h in request.headers for h in PROXY_HEADERS)
@@ -218,6 +228,8 @@ class DemoState:
         key = delivery.analysis.get("source_key")
         payload = {"document": doc, "delivery": delivery.to_dict(), "explain": ex, "sample": sample,
                    "source": self.source_info(key)}
+        if tmp:                                         # never show the server's temporary file path
+            payload = _replace_text(payload, tmp, filename)
         self.last = {"filename": filename, "data": data, "source_url": source_url, "sample": sample}
         return self._remember(payload)
 
