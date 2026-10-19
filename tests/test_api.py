@@ -71,7 +71,7 @@ class TestConsole(unittest.TestCase):
         self.c = client()
 
     def test_page_health_samples(self):
-        self.assertIn("Drop a tool response", self.c.get("/").text)
+        self.assertIn("Inspect a tool response", self.c.get("/").text)
         self.assertEqual(self.c.get("/health").json(), {"status": "ok", "mode": "live"})
         samples = {s["id"]: s for s in self.c.get("/api/samples").json()}
         self.assertEqual(list(samples), [s.id for s in SAMPLES])
