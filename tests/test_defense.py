@@ -279,6 +279,13 @@ class TestSanitizer(unittest.TestCase):
                 self.assertEqual(reconstruct(segs, [True] * len(segs)), text.strip(), repr(text))
                 self.assertTrue(all(len(s.text) <= limit for s in segs), repr(text))
 
+    def test_list_markers_stay_with_their_text(self):
+        segs = [s.text for s in segment_text("Tips.\n\n2. Pin your base image\nUse a tag. Dr. Lee agreed.\nIV. Last.")]
+        self.assertEqual(segs, ["Tips.", "2. Pin your base image", "Use a tag.", "Dr. Lee agreed.", "IV. Last."])
+        segs = [s.text for s in segment_text("Step 2.\n\nNext part.")]       # a paragraph break still splits
+        self.assertEqual(segs, ["Step 2.", "Next part."])
+        self.assertEqual([s.text for s in segment_text("1.\n\nAlone.")], ["1.", "Alone."])
+
     def test_unclosed_code_fence_is_split(self):
         segs = segment_text("Intro.\n```\n" + "code line " * 100 + "  \n", 400)
         self.assertGreater(len(segs), 2)                    # not one giant segment to the end of the text

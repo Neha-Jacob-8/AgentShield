@@ -149,9 +149,26 @@ def segment_text(text: str, hard_split_chars: int = 400) -> List[Segment]:
             pending_sep += m.group("sep")
         pos = m.end()
     emit(text[pos:], pending_sep)
+    segs = _attach_markers(segs, hard_split_chars)
     if segs:
         segs[0].sep_before = ""
     return segs
+
+
+_MARKER = re.compile(r"(?:\d{1,3}|[A-Za-z]{1,3}|[ivxIVX]{1,4})[.)]")
+
+
+def _attach_markers(segs: List[Segment], limit: int) -> List[Segment]:
+    """Keep list numbers and short abbreviations ("2.", "a)", "Dr.") with the text that follows them.
+    Split off, "Pin your base image" reads like a command (DeBERTa 0.95); as "2. Pin your base image" it does not."""
+    out: List[Segment] = []
+    for seg in segs:
+        if (out and _MARKER.fullmatch(out[-1].text) and _strength(seg.sep_before) < 3
+                and len(out[-1].text) + len(seg.sep_before) + len(seg.text) <= limit):
+            out[-1] = Segment(out[-1].text + seg.sep_before + seg.text, out[-1].sep_before)
+        else:
+            out.append(seg)
+    return out
 
 
 def group_segments(segs: List[Segment], max_segments: int) -> List[Segment]:
