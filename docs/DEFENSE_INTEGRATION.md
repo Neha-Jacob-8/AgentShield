@@ -242,6 +242,8 @@ post-check (residual risk below the accept threshold). Once the source or sessio
 1. **Segment**: paragraphs → lines → sentences. Fenced code blocks stay whole up to about 400
    characters; longer code blocks and long unpunctuated runs (OCR, minified text, or an unclosed
    code fence that would otherwise swallow the rest of the document) are split at about 400 characters.
+   A list number or short abbreviation ("2.", "Dr.") stays with the text that follows it: split off,
+   the heading "Pin your base image" read like a command (DeBERTa 0.95) and was removed from a benign article.
 2. **Score**: each segment gets `max(DeBERTa probability, signature score)`. DeBERTa sees the
    segment with the domain prefix it was trained with (`Web content:` / `Document content:`),
    batched.
@@ -417,9 +419,10 @@ segment boundaries, unbounded segments from unclosed code fences, and a crash on
   which the fixed pipeline reproduces).
 * **Protocol.** Every choice (windowed scoring and its domains, post-check mode, image profile) was made
   on **validation**. The **test** split was then evaluated once with frozen settings:
-  `python -m src.defense.evaluate --split test`. Reports: `docs/results/defense/`. After the final
-  audit fixed a segmentation detail, the parts that use the sanitizer were re-run with unchanged
-  settings: every decision count stayed identical; sanitizer metrics moved by one document.
+  `python -m src.defense.evaluate --split test`. Reports: `docs/results/defense/`. The parts that use
+  the sanitizer were re-run twice with unchanged settings after segmentation fixes: once after the final
+  audit, and once after the demo showed a list heading being removed (list numbers now stay with their
+  text). Each time every decision count stayed identical and the sanitizer metrics moved by one document.
 * **"Before"** is the CATS decision of the previous pipeline (truncated DeBERTa,
   `configs/cats_default.json`). Its SANITIZE was only a label: nothing was removed.
 * In 10.2–10.3 every document is an independent first contact (adaptive state off), so the numbers
@@ -493,7 +496,7 @@ One attack sentence was inserted into each benign document (start, middle or end
 | Inserted attack | Blocked | Sanitized (attack fully removed) | Accepted (attack missed) | Benign sentences kept¹ | Original restored exactly¹ |
 |---|---|---|---|---|---|
 | none (clean documents) | 8 | 32 | 432 | — | — |
-| 12 handcrafted attacks (methodology classes) | 105 | 346 (**346**) | 21 | 95.2 % | 275 / 367 |
+| 12 handcrafted attacks (methodology classes) | 105 | 346 (**346**) | 21 | 95.1 % | 274 / 367 |
 | real web attacks from the test split | 133 | 269 (**257**) | 70 | 84.1 % | 84 / 339 |
 
 ¹ over delivered documents (accepted + sanitized), including the missed ones.
@@ -512,9 +515,11 @@ One attack sentence was inserted into each benign document (start, middle or end
 
 | Tool | p50 | p95 | max |
 |---|---|---|---|
-| web | 26 ms | 67 ms | 95 ms |
-| PDF (windows + sanitizer + post-check) | 85 ms | 283 ms | 1.6 s |
-| image (ViT + DeBERTa, OCR text given) | 59 ms | 89 ms | 146 ms |
+| web | 27 ms | 71 ms | 90 ms |
+| PDF (windows + sanitizer + post-check) | 88 ms | 392 ms | 1.5 s |
+| image (ViT + DeBERTa, OCR text given) | 59 ms | 83 ms | 142 ms |
+
+Timings vary by a few milliseconds between runs; these are from the run in `test_report.json`.
 
 ---
 
