@@ -21,3 +21,8 @@ torchvision>=0.21.0   # matches torch 2.6
 
 # CATS Trust & Analysis layer (Part 4)
 sentence-transformers>=2.7.0
+
+# Security runtime API and demo console (Part 5)
+fastapi>=0.110.0
+uvicorn>=0.29.0
+httpx>=0.27.0           # FastAPI test client (tests/test_api.py)

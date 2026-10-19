@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentShield Demo</title>
+<style>
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --surface-2: #f8fafc; --text: #1b2430; --muted: #5a6573; --border: #d9dfe6;
+  --navy: #14304d; --navy-2: #1f4770; --link: #0b5cad;
+  --accept: #157a35; --accept-bg: #e5f4ea; --sanitize: #8f5f00; --sanitize-bg: #fff3d4; --reject: #b42318; --reject-bg: #fde7e6;
+  --removed: #ffd6d3; --flagged: #ffefb8; --skip: #9aa4af;
+  --radius: 10px; --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { margin: 0; line-height: 1.25; }
+
+/* ---------- top bar ---------- */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 20px; padding: 12px 20px;
+  background: var(--navy); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 250px; }
+.brand svg { width: 34px; height: 34px; flex: none; }
+.brand h1 { font-size: 20px; letter-spacing: .2px; }
+.brand p { margin: 0; font-size: 12.5px; color: #c7d6e6; }
+.task { flex: 1; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c7d6e6; }
+.task input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid #3c5f85;
+  background: #0f2740; color: #fff; }
+.task input:disabled { opacity: .7; }
+.top-actions { display: flex; align-items: center; gap: 10px; }
+.mode { font-size: 11.5px; font-weight: 700; letter-spacing: .8px; padding: 4px 8px; border-radius: 6px; background: #2c6e3f; }
+.mode.replay { background: #8a5a00; }
+.btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 7px 14px;
+  border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: #fff; color: var(--navy); border-color: #fff; }
+.top .btn { border-color: #3c5f85; background: transparent; color: #fff; }
+.top .btn.primary { background: #fff; color: var(--navy); border-color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* ---------- layout ---------- */
+.grid { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; padding: 16px 20px 40px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel > h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 12px 14px 6px; }
+aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ---------- scenarios ---------- */
+.group-title { font-size: 12px; font-weight: 700; color: var(--muted); padding: 10px 14px 4px; }
+.scenario { display: flex; gap: 10px; width: 100%; text-align: left; padding: 9px 14px; border: 0; border-top: 1px solid #eef1f4;
+  background: none; cursor: pointer; }
+.scenario:hover { background: var(--surface-2); }
+.scenario.active { background: #e8f0f9; }
+.scenario:disabled { cursor: default; opacity: .45; }
+.scenario .icon { flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; background: #edf2f7; color: var(--navy-2); }
+.scenario .icon svg { width: 16px; height: 16px; }
+.scenario b { display: block; font-size: 14px; font-weight: 600; }
+.scenario span { display: block; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.custom { padding: 4px 14px 14px; }
+.custom summary { cursor: pointer; font-weight: 600; padding: 10px 0 6px; }
+.custom label { display: block; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.custom input, .custom select, .custom textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
+.custom textarea { min-height: 110px; resize: vertical; }
+.custom .btn { margin-top: 10px; width: 100%; }
+
+/* ---------- empty state ---------- */
+.empty { padding: 36px 32px; }
+.empty h2 { font-size: 24px; margin-bottom: 8px; }
+.empty p { color: var(--muted); max-width: 680px; }
+.flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+.flow span { padding: 6px 10px; border-radius: 999px; background: #e8eef5; font-size: 13px; font-weight: 600; color: var(--navy-2); }
+.kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: #fff; }
+
+/* ---------- result ---------- */
+.result { display: flex; flex-direction: column; gap: 14px; }
+.head { padding: 16px 18px; }
+.head .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.head .meta span { padding: 2px 8px; border-radius: 6px; background: #eef2f6; }
+.head h2 { font-size: 21px; }
+.talk { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #eef4fb; color: #18324d; font-size: 14px; }
+.talk b { color: var(--navy); }
+
+.verdict { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 16px 18px; border-left: 0; }
+.verdict.ACCEPT { background: var(--accept-bg); border-color: #b9dfc6; }
+.verdict.SANITIZE { background: var(--sanitize-bg); border-color: #f0d58c; }
+.verdict.REJECT { background: var(--reject-bg); border-color: #f4b9b4; }
+.badge { font-size: 26px; font-weight: 800; letter-spacing: 1px; padding: 8px 16px; border-radius: 9px; color: #fff; }
+.badge.ACCEPT { background: var(--accept); } .badge.SANITIZE { background: var(--sanitize); } .badge.REJECT { background: var(--reject); }
+.verdict .why { font-size: 16px; font-weight: 600; }
+.verdict .why small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.stats { display: flex; gap: 18px; }
+.stat { text-align: right; }
+.stat b { display: block; font-size: 22px; line-height: 1.1; }
+.stat span { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+.pipeline { list-style: none; margin: 0; padding: 14px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.stage { position: relative; padding: 10px 10px 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); min-height: 112px; }
+.stage .n { font-size: 11px; font-weight: 700; color: var(--muted); }
+.stage h3 { font-size: 13px; margin: 2px 0 6px; }
+.stage .v { font-size: 12.5px; color: var(--text); line-height: 1.4; word-break: break-word; }
+.stage .v em { font-style: normal; color: var(--muted); }
+.stage::before { content: ""; position: absolute; top: 10px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--skip); }
+.stage.ok { border-color: #b9dfc6; } .stage.ok::before { background: var(--accept); }
+.stage.warn { border-color: #f0d58c; background: #fffaeb; } .stage.warn::before { background: #d39b00; }
+.stage.alert { border-color: #f4b9b4; background: #fff5f4; } .stage.alert::before { background: var(--reject); }
+
+.rules { padding: 10px 16px 14px; }
+.rules h3, .pane h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 4px 0 8px; }
+.rule { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-top: 1px solid #eef1f4; font-size: 13.5px; }
+.rule:first-of-type { border-top: 0; }
+.rule .code { flex: none; min-width: 150px; font-weight: 700; color: var(--navy-2); }
+.rule .txt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: #33404d; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pane { padding: 12px 16px 16px; min-width: 0; }
+.pane .sub { font-size: 12.5px; color: var(--muted); margin: -4px 0 10px; }
+.doc { position: relative; white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.6; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: #fcfdfe; max-height: 420px; overflow: auto; }
+.seg.removed { background: var(--removed); border-bottom: 2px solid var(--reject); }
+.seg.flagged { background: var(--flagged); }
+.seg { border-radius: 3px; }
+.hidden-box { margin: 0 0 10px; padding: 9px 11px; border: 2px dashed var(--reject); border-radius: 8px; background: #fff7f6; font-size: 13.5px; }
+.hidden-box b { color: var(--reject); }
+.finding { margin: 0 0 10px; padding: 8px 11px; border-radius: 8px; background: #fff3d4; font-size: 13.5px; }
+.finding code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.received { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.6; padding: 12px; border-radius: 8px; max-height: 420px; overflow: auto; }
+.received.ACCEPT { border: 2px solid #b9dfc6; background: #f6fbf8; }
+.received.SANITIZE { border: 2px solid #f0d58c; background: #fffcf2; }
+.received.REJECT { border: 2px solid #f4b9b4; background: #fff8f7; color: var(--reject); font-weight: 600; }
+.notice { display: block; margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(0,0,0,.05); font-size: 13px; font-weight: 400; color: #333; }
+.thumb { display: block; max-width: 100%; max-height: 420px; margin: 0 auto 10px; border-radius: 8px; border: 1px solid var(--border); }
+.thumb.blocked { filter: grayscale(1) blur(2px); opacity: .55; }
+details.raw { margin-top: 8px; font-size: 12.5px; }
+details.raw pre { white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto; background: #f4f6f8; padding: 8px; border-radius: 6px; }
+
+/* ---------- adaptive state ---------- */
+.alert-box { margin: 4px 14px 10px; padding: 9px 11px; border-radius: 8px; font-size: 13.5px; background: #eef2f6; }
+.alert-box.on { background: var(--sanitize-bg); color: #6b4800; font-weight: 600; }
+.source { padding: 9px 14px; border-top: 1px solid #eef1f4; }
+.source .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13.5px; }
+.source .row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { flex: none; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .4px; }
+.chip.normal { background: var(--accept-bg); color: var(--accept); }
+.chip.elevated { background: var(--sanitize-bg); color: var(--sanitize); }
+.chip.high { background: #ffe1c7; color: #9a3a00; }
+.chip.quarantined { background: var(--reject); color: #fff; }
+.chip.ACCEPT { background: var(--accept-bg); color: var(--accept); }
+.chip.SANITIZE { background: var(--sanitize-bg); color: var(--sanitize); }
+.chip.REJECT { background: var(--reject-bg); color: var(--reject); }
+.bar { position: relative; height: 8px; margin-top: 7px; border-radius: 4px; background: #e9edf1; }
+.bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--navy-2); }
+.bar .tick { position: absolute; top: -3px; width: 2px; height: 14px; background: #8b97a3; }
+.bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.muted { color: var(--muted); font-size: 13px; padding: 4px 14px 12px; }
+.hist { padding-bottom: 8px; }
+.hist button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 14px; border: 0; border-top: 1px solid #eef1f4; background: none; text-align: left; cursor: pointer; font-size: 13px; }
+.hist button:hover { background: var(--surface-2); }
+.hist .k { flex: none; width: 22px; color: var(--muted); font-weight: 700; }
+.hist .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- busy / toast ---------- */
+.busy { position: fixed; inset: 0; display: none; place-items: center; background: rgba(243,245,248,.55); z-index: 20; }
+.busy.on { display: grid; }
+.busy div { padding: 14px 22px; border-radius: 10px; background: var(--navy); color: #fff; font-weight: 600; box-shadow: var(--shadow); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px; background: #2b3540; color: #fff; font-size: 14px; display: none; z-index: 30; }
+.toast.on { display: block; }
+
+@media (max-width: 1450px) { .grid { grid-template-columns: 236px minmax(0, 1fr) 256px; gap: 12px; padding: 12px; } .pipeline { grid-template-columns: repeat(4, minmax(0, 1fr)); } .brand { min-width: 0; } .brand p { display: none; } }
+@media (max-width: 1050px) { .grid { grid-template-columns: 236px minmax(0, 1fr); } .col-right { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .col-right { grid-template-columns: 1fr; } .compare { grid-template-columns: 1fr; } .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); } .top { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3Z" fill="#2f6aa3" stroke="#fff" stroke-width="1.4"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><h1>AgentShield</h1><p>Adaptive security runtime for AI agents</p></div>
+  </div>
+  <label class="task">Agent's task <input id="task" placeholder="What the AI agent was asked to do"></label>
+  <div class="top-actions">
+    <span id="mode" class="mode">LIVE</span>
+    <button id="next" class="btn primary" title="Shortcut: N or →">Next step ▸</button>
+    <button id="reset" class="btn" title="Start a fresh session">Reset</button>
+  </div>
+</header>
+
+<main class="grid">
+  <aside class="col-left">
+    <div class="panel">
+      <h2 class="sec">Scenarios</h2>
+      <div id="scenarios"></div>
+      <details class="custom" id="custom">
+        <summary>Try your own input</summary>
+        <label>Tool type
+          <select id="c-modality"><option value="web">Web page (HTML or text)</option><option value="pdf">PDF text</option><option value="text">Any text</option><option value="image">Image / screenshot</option></select>
+        </label>
+        <label>Source URL (optional)<input id="c-url" placeholder="https://example.com/page"></label>
+        <label id="c-text-wrap">Tool response<textarea id="c-text" placeholder="Paste a tool response here"></textarea></label>
+        <label id="c-file-wrap" hidden>Image file<input id="c-file" type="file" accept="image/*"></label>
+        <button id="c-run" class="btn">Inspect</button>
+      </details>
+    </div>
+  </aside>
+
+  <section class="col-center">
+    <div id="empty" class="panel empty">
+      <h2>Every tool response is checked before the agent sees it</h2>
+      <p>Pick a scenario on the left, or press <span class="kbd">Next step ▸</span> (or <span class="kbd">N</span>) to walk through the guided demo.
+         Each response goes through the same pipeline as in production, with the real models.</p>
+      <div class="flow"><span>1 Intercept</span><span>2 Content filter</span><span>3 Detection</span><span>4 CATS trust</span><span>5 Decision</span><span>6 Sanitizer</span><span>7 Delivery</span></div>
+    </div>
+    <div id="result" class="result" hidden></div>
+  </section>
+
+  <aside class="col-right">
+    <div class="panel">
+      <h2 class="sec" id="adaptive-title">Adaptive defense</h2>
+      <div id="alert" class="alert-box">Session calm</div>
+      <div id="sources"></div>
+    </div>
+    <div class="panel">
+      <h2 class="sec">This session</h2>
+      <div id="history" class="hist"></div>
+    </div>
+  </aside>
+</main>
+
+<div id="busy" class="busy"><div>Analysing the tool response…</div></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const f2 = (x) => (x === null || x === undefined) ? "–" : Number(x).toFixed(2);
+const ICONS = {
+  web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+  pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg>',
+  text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
+};
+const RULES = {R0: "Fail-safe", R1: "Blocklist", R2: "Quarantine", R3: "Adaptive level", R4: "Risk vs thresholds",
+               R5: "Extra evidence", R6: "Salvage attempt", R7: "Re-check after cleaning"};
+let MODE = "live", results = [], scenarios = [];
+
+async function api(path, body) {
+  const isGet = ["/api/state", "/api/scenarios", "/api/results"].some((x) => path.startsWith(x));
+  const opts = body === undefined ? {method: isGet ? "GET" : "POST"}
+                                  : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+}
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 4200); }
+async function busy(fn) { $("#busy").classList.add("on"); try { return await fn(); } catch (e) { toast(e.message); } finally { $("#busy").classList.remove("on"); } }
+
+/* ---------- scenarios ---------- */
+function renderScenarios() {
+  const groups = {};
+  scenarios.forEach((s) => (groups[s.group] = groups[s.group] || []).push(s));
+  $("#scenarios").innerHTML = Object.entries(groups).map(([g, list]) =>
+    `<div class="group-title">${esc(g)}</div>` + list.map((s) =>
+      `<button class="scenario" data-id="${s.id}" ${s.available ? "" : "disabled title='Needs the local dataset'"}>
+         <span class="icon">${ICONS[s.modality] || ICONS.text}</span>
+         <span><b>${esc(s.title)}</b><span>${esc(s.blurb)}</span></span></button>`).join("")).join("");
+  document.querySelectorAll(".scenario").forEach((b) => b.onclick = () => run(`/api/run/${b.dataset.id}`));
+}
+
+/* ---------- pipeline cards ---------- */
+function stages(d, old) {
+  const a = d.analysis || {}, cf = a.content_filter, det = a.detection, cats = a.cats, pol = a.policy || {}, san = a.sanitization, post = a.post_check;
+  const pre = !cf && !det;
+  const st = (cls, v) => ({cls, v});
+  const out = [];
+  out.push(["Intercept", st("ok", `<em>Source</em><br>${esc(a.source_key || "–")}<br><em>Tool</em> ${esc(a.metadata?.tool_name || d.modality)}`)]);
+  if (pre) out.push(["Content filter", st("", "<em>skipped</em>")]);
+  else {
+    const f = [];
+    if (cf.hidden_elements.length) f.push(`${cf.hidden_elements.length} hidden element(s)`);
+    const u = cf.unicode || {};
+    const inv = (u.bidi_controls || 0) + (u.tag_characters || 0) + (u.zero_width_in_words || 0);
+    if (inv) f.push(`${inv} invisible char(s)`);
+    if (cf.encoded_payloads.length) f.push(`${cf.encoded_payloads.length} encoded payload(s)`);
+    out.push(["Content filter", st(f.length ? "warn" : "ok", f.length ? f.join("<br>") : "Nothing concealed")]);
+  }
+  if (pre) out.push(["Detection", st("", "<em>skipped</em>")]);
+  else {
+    const p = det.patterns || {score: 0, categories: []};
+    const m = Math.max(det.text_threat || 0, det.visual_threat || 0, p.score || 0);
+    out.push(["Detection", st(m >= .7 ? "alert" : m >= .3 ? "warn" : "ok",
+      `<em>DeBERTa</em> ${f2(det.text_threat)}` + (old !== undefined && Math.abs(old - (det.text_threat || 0)) > .05 ? ` <em>(first 256 tokens only: ${f2(old)})</em>` : "") +
+      (det.visual_threat !== null ? `<br><em>ViT</em> ${f2(det.visual_threat)}` : "") +
+      `<br><em>Signatures</em> ${f2(p.score)}` + (p.categories.length ? `<br><em>${esc(p.categories.map((c) => c.replace(/_/g, " ")).join(", "))}</em>` : ""))]);
+  }
+  if (!cats) out.push(["CATS trust", st("", "<em>skipped</em>")]);
+  else out.push(["CATS trust", st(cats.decision === "REJECT" ? "alert" : cats.decision === "SANITIZE" ? "warn" : "ok",
+      `<em>Risk</em> ${f2(cats.risk_score)}<br><em>Trust</em> ${cats.trust_score === null ? "–" : Math.round(cats.trust_score * 100)}/100${post && d.action_taken === "SANITIZE" ? " <em>as received</em>" : ""}<br><em>Task fit</em> ${f2(cats.semantic_alignment)}`)]);
+  out.push(["Decision", st(pol.threat === "REJECT" ? "alert" : pol.threat === "SANITIZE" ? "warn" : "ok",
+      `<em>Level</em> ${esc(pol.level || "–")}` + (pre ? "" : `<br><em>Accept &lt;</em> ${f2(pol.accept_below)} <em>Reject ≥</em> ${f2(pol.reject_at_or_above)}`) +
+      `<br><em>Evidence says</em> ${esc(pol.threat || "–")}` + (pol.salvaged ? "<br><em>salvage attempted</em>" : ""))]);
+  if (san) out.push(["Sanitizer", st(san.removed ? "warn" : "ok",
+      `${san.removed} removed · ${san.flagged} flagged<br><em>of</em> ${san.segments} sentences` + (post ? `<br><em>Residual risk</em> ${f2(post.residual_risk)}` : ""))]);
+  else out.push(["Sanitizer", st("", "<em>not needed</em>")]);
+  out.push(["Delivery", st(d.action_taken === "REJECT" ? "alert" : d.action_taken === "SANITIZE" ? "warn" : "ok",
+      `<b>${d.action_taken}</b><br><em>${a.timing_ms ?? "–"} ms</em>` + (d.image_forwarded !== null ? `<br><em>image ${d.image_forwarded ? "forwarded" : "withheld"}</em>` : ""))]);
+  return out.map(([name, s], i) => `<li class="stage ${s.cls}"><div class="n">STEP ${i + 1}</div><h3>${name}</h3><div class="v">${s.v}</div></li>`).join("");
+}
+
+function why(d) {
+  const a = d.analysis || {}, pol = a.policy || {}, san = a.sanitization;
+  const rules = (pol.rules_fired || []).join(" ");
+  if (d.action_taken === "ACCEPT") return ["Delivered unchanged", "No attack found; the agent gets the original content."];
+  if (d.action_taken === "SANITIZE") {
+    const hidden = (a.content_filter?.hidden_elements || []).length;
+    if (san && san.removed) return [`Delivered after removing ${san.removed} attack sentence${san.removed > 1 ? "s" : ""}`, pol.salvaged ? "Salvaged: the rest passed a strict re-check." : "The cleaned content passed the re-check."];
+    if (hidden) return ["Delivered without the hidden text", "Text that people cannot see was dropped before delivery."];
+    return ["Delivered with a caution note", "Suspicious but nothing specific to remove; the agent is told to treat it as data."];
+  }
+  if (rules.includes("R2")) return ["Blocked: source is quarantined", "This source attacked repeatedly; nothing it sends is analysed or delivered."];
+  if (rules.includes("R1")) return ["Blocked: blocklisted source", ""];
+  if (rules.includes("R0")) return ["Blocked: analysis failed (fail-closed)", a.error || ""];
+  if (rules.includes("nothing legitimate left")) return ["Blocked: nothing legitimate left", "After removing the attack, no useful content remained."];
+  if (rules.includes("R7")) return ["Blocked: still unsafe after cleaning", "The cleaned content did not pass the re-check."];
+  return ["Blocked: attack detected", pol.level && pol.level !== "normal" ? `Defense level is ${pol.level}, so no salvage is attempted.` : "Risk is above the reject threshold."];
+}
+
+/* ---------- panes ---------- */
+function originalPane(p) {
+  const d = p.delivery, x = p.explain || {};
+  let h = "";
+  if (x.image) h += `<img class="thumb" src="${x.image}" alt="tool image">`;
+  (x.hidden || []).forEach((e) => h += `<div class="hidden-box"><b>Hidden from people (${esc(e.reason)}):</b> ${esc(e.preview)}</div>`);
+  if (x.unicode) {
+    const u = x.unicode;
+    h += `<div class="finding">Invisible characters: ${u.zero_width_in_words} zero-width inside words, ${u.bidi_controls} direction controls, ${u.tag_characters} tag characters${u.smuggled_text ? ` (smuggled text: <code>${esc(u.smuggled_text)}</code>)` : ""}.</div>`;
+    h += `<div class="finding">As written: <code>${esc(x.raw_text.slice(0, 400))}</code></div>`;
+  }
+  (x.encoded || []).forEach((e) => h += `<div class="finding">Base64 blob decodes to: <code>${esc(e.decoded_preview)}</code></div>`);
+  if (x.segments && x.segments.length) {
+    const body = x.segments.map((s) => {
+      const tip = `score ${f2(s.score)} · DeBERTa ${f2(s.model_score)} · signatures ${f2(s.pattern_score)}${s.signatures.length ? " (" + s.signatures.join(", ") + ")" : ""}`;
+      return esc(s.sep) + `<span class="seg ${s.action}" title="${esc(tip)}">${esc(s.text)}</span>`;
+    }).join("");
+    h += `<div class="doc">${body}</div><div class="legend"><span><i style="background:var(--removed)"></i>attack sentence (removed if sanitized)</span><span><i style="background:var(--flagged)"></i>suspicious, kept</span><span>hover a sentence for its scores</span></div>`;
+  } else if (x.raw_text) {
+    h += `<div class="doc">${esc(x.raw_text)}</div>`;
+  } else if (!x.image) h += `<div class="doc"><em>(empty)</em></div>`;
+  if (x.is_html) h += `<details class="raw"><summary>Show the raw HTML</summary><pre>${esc(x.raw_text)}</pre></details>`;
+  return h;
+}
+function receivedPane(p) {
+  const d = p.delivery, x = p.explain || {};
+  if (d.action_taken === "REJECT") return `<div class="received REJECT">Nothing from this response reaches the agent.<span class="notice">${esc(d.agent_notice)}</span></div>`;
+  let h = "";
+  if (x.image && d.image_forwarded) h += `<img class="thumb" src="${x.image}" alt="forwarded image">`;
+  if (x.image && d.image_forwarded === false) h += `<div class="finding">The image is withheld; only its checked text is delivered.</div>`;
+  h += `<div class="received ${d.action_taken}">${esc(d.secure_content) || "<em>(no text)</em>"}${d.agent_notice ? `<span class="notice">${esc(d.agent_notice)}</span>` : ""}</div>`;
+  return h;
+}
+
+function renderResult(p) {
+  const d = p.delivery, sc = p.scenario, [title, sub] = why(d), a = d.analysis || {};
+  $("#empty").hidden = true;
+  const r = $("#result"); r.hidden = false;
+  const rules = (a.policy?.rules_fired || []).map((t) => {
+    const code = t.slice(0, 2);
+    return `<div class="rule"><span class="code">${esc(code)} · ${esc(RULES[code] || "")}</span><span class="txt">${esc(t.slice(3))}</span></div>`;
+  }).join("");
+  r.innerHTML = `
+    <div class="panel head">
+      <h2>${esc(sc ? sc.title : "Custom input")}${sc && sc.run > 1 ? ` <span style="color:var(--muted);font-weight:500">(run ${sc.run})</span>` : ""}</h2>
+      <div class="meta"><span>${esc(d.modality)}</span><span>${esc(d.original_source || "unknown source")}</span><span>${esc(d.request_id)}</span></div>
+      ${sc ? `<div class="talk"><b>What happens here:</b> ${esc(sc.talking_point)}</div>` : ""}
+    </div>
+    <div class="panel verdict ${d.action_taken}">
+      <div class="badge ${d.action_taken}">${d.action_taken}</div>
+      <div class="why">${esc(title)}<small>${esc(sub)}</small></div>
+      <div class="stats">
+        <div class="stat"><b>${d.trust_score === null ? "–" : Math.round(d.trust_score)}</b><span>${a.post_check && d.action_taken === "SANITIZE" ? "Trust after cleaning" : "Trust /100"}</span></div>
+        <div class="stat"><b>${f2(d.injection_score)}</b><span>Injection</span></div>
+        <div class="stat"><b>${esc(a.policy?.level || "–")}</b><span>Level</span></div>
+      </div>
+    </div>
+    <div class="panel"><ol class="pipeline">${stages(d, (p.explain || {}).old_pipeline_text_threat)}</ol></div>
+    <div class="panel rules"><h3>Why: rules that fired</h3>${rules || "<div class='rule'>–</div>"}</div>
+    <div class="compare">
+      <div class="panel pane"><h3>Tool response</h3><div class="sub">What an unprotected agent would read</div>${originalPane(p)}</div>
+      <div class="panel pane"><h3>What the agent receives</h3><div class="sub">With AgentShield in between</div>${receivedPane(p)}</div>
+    </div>`;
+  document.querySelectorAll(".scenario").forEach((b) => b.classList.toggle("active", !!sc && b.dataset.id === sc.id));
+  const seg = r.querySelector(".doc .seg.removed, .doc .seg.flagged");          // bring the attack into view
+  if (seg) seg.closest(".doc").scrollTop = Math.max(0, seg.offsetTop - 60);
+  history.replaceState(null, "", `#step=${(p.state?.history?.length) || ""}`);
+}
+
+/* ---------- adaptive state ---------- */
+function renderState(s) {
+  if (!s) return;
+  MODE = s.mode || MODE;
+  $("#mode").textContent = MODE.toUpperCase();
+  $("#mode").classList.toggle("replay", MODE === "replay");
+  $("#task").disabled = MODE === "replay";
+  if (document.activeElement !== $("#task")) $("#task").value = s.user_intent || "";
+  $("#custom").style.display = MODE === "replay" ? "none" : "";
+  const g = s.guided || {index: 0, total: 0};
+  $("#next").textContent = g.index >= g.total && g.total ? "Guided demo done" : `Next step ▸ ${g.total ? `(${g.index + 1}/${g.total})` : ""}`;
+  $("#next").disabled = g.total > 0 && g.index >= g.total;
+  renderAdaptive(s, null);
+  $("#history").innerHTML = (s.history || []).slice().reverse().map((h) => `
+    <button data-k="${h.step - 1}"><span class="k">${h.step}</span><span class="t">${esc(h.title)}</span><span class="chip ${h.action}">${h.action}</span></button>`).join("")
+    || `<div class="muted">No responses yet.</div>`;
+  document.querySelectorAll("#history button").forEach((b) => b.onclick = async () => {
+    const k = +b.dataset.k;
+    if (!results[k]) results[k] = await api(`/api/results/${k}`).catch((e) => toast(e.message));
+    if (results[k]) showPast(results[k], k + 1, s.history.length);
+  });
+}
+function showPast(p, step, latest) {
+  renderResult(p);
+  renderAdaptive(p.state, step < latest ? step : null);
+}
+function renderAdaptive(s, asOf) {
+  if (!s) return;
+  $("#adaptive-title").textContent = asOf ? `Adaptive defense (as of step ${asOf})` : "Adaptive defense";
+  const al = s.session_alert || 0;
+  $("#alert").className = "alert-box" + (al ? " on" : "");
+  $("#alert").textContent = al ? `Session on alert for ${al} more response${al > 1 ? "s" : ""}: thresholds are stricter for every source.` : "Session calm: no recent attack.";
+  const th = s.thresholds || {elevated_at: 1, high_at: 2.5, quarantine_at: 4};
+  const max = th.quarantine_at * 1.25;
+  const src = (s.sources || []).slice().sort((x, y) => y.suspicion - x.suspicion);
+  $("#sources").innerHTML = src.length ? src.map((x) => `
+    <div class="source"><div class="row"><b title="${esc(x.key)}">${esc(x.key)}</b><span class="chip ${x.level}">${x.level}</span></div>
+      <div class="bar"><div class="fill" style="width:${Math.min(100, x.suspicion / max * 100)}%"></div>
+        ${[th.elevated_at, th.high_at, th.quarantine_at].map((t) => `<div class="tick" style="left:${t / max * 100}%"></div>`).join("")}</div>
+      <div class="bar-label"><span>suspicion ${x.suspicion.toFixed(2)}</span><span>${x.threats} attack${x.threats === 1 ? "" : "s"}</span></div></div>`).join("")
+    : `<div class="muted">Sources appear here as tool responses arrive. Ticks mark elevated, high and quarantine.</div>`;
+}
+
+/* ---------- actions ---------- */
+async function run(path, body) {
+  const p = await busy(() => api(path, body));
+  if (!p) return;
+  if (p.skipped) { toast(`Skipped "${p.skipped}": ${p.detail}`); const s = await api("/api/state"); renderState(Object.assign(s, {guided: p.guided})); return; }
+  results[(p.state?.history?.length || results.length + 1) - 1] = p;
+  renderResult(p);
+  renderState(Object.assign({}, p.state, p.guided ? {guided: p.guided} : {}));
+}
+$("#next").onclick = () => run("/api/guided/next");
+$("#reset").onclick = async () => { const s = await busy(() => api("/api/reset")); results = []; $("#result").hidden = true; $("#empty").hidden = false; renderState(s); toast("New session: reputation and alerts cleared."); };
+$("#task").onchange = async () => { const s = await api("/api/intent", {user_intent: $("#task").value}).catch((e) => toast(e.message)); if (s) toast("Agent task updated."); };
+$("#c-modality").onchange = () => { const img = $("#c-modality").value === "image"; $("#c-text-wrap").hidden = img; $("#c-file-wrap").hidden = !img; };
+$("#c-run").onclick = async () => {
+  const modality = $("#c-modality").value, body = {modality, source_url: $("#c-url").value || null, tool_name: "custom_tool"};
+  if (modality === "image") {
+    const f = $("#c-file").files[0];
+    if (!f) return toast("Choose an image first.");
+    body.image_base64 = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.readAsDataURL(f); });
+  } else {
+    body.content = $("#c-text").value;
+    if (!body.content.trim()) return toast("Paste a tool response first.");
+  }
+  run("/api/inspect", body);
+};
+document.addEventListener("keydown", (e) => {
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+  if (e.key === "n" || e.key === "N" || e.key === "ArrowRight") { e.preventDefault(); if (!$("#next").disabled) $("#next").click(); }
+});
+(async () => {
+  try {
+    scenarios = await api("/api/scenarios");
+    renderScenarios();
+    const s = await api("/api/state");
+    renderState(s);
+    const want = +(location.hash.match(/step=(\d+)/) || [])[1];
+    if (s.history && s.history.length) {                                       // survive a refresh / open #step=N
+      const k = want && want <= s.history.length ? want : s.history.length;
+      showPast(await api(`/api/results/${k - 1}`), k, s.history.length);
+    }
+  } catch (e) { toast("Cannot reach the AgentShield server: " + e.message); }
+})();
+</script>
+</body>
+</html>
