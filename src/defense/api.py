@@ -51,8 +51,8 @@ from .scenarios import TASK
 
 UI_FILE = Path(__file__).with_name("demo_ui") / "index.html"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
-RECORD_SEQUENCE = ["clinic-report", "clinic-report", "quarterly-report", "docker-guide", "supplier-email",
-                   "benchmark-attack", "shop-screenshot", "attack-screenshot"]
+RECORD_SEQUENCE = ["quarterly-report", "docker-guide", "supplier-email", "clinic-report", "clinic-report",
+                   "shop-screenshot", "attack-screenshot", "reset", "benchmark-attack"]     # the order in docs/DEMO.md
 SAMPLE_SOURCES = {"clinic-report": "https://files.riverside-cardiology.example/leaflets/PL-114.pdf",
                   "quarterly-report": "https://ir.northwind.example/results/q3-2026.pdf",
                   "docker-guide": "https://devops-weekly.example/smaller-docker-images",
@@ -384,7 +384,8 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
 
 
 def record(path: str, cats_config: str, embedder: Optional[str] = None) -> None:
-    """Run every sample once with the real models (the clinic leaflet twice) and save it for --replay."""
+    """Run every sample with the real models in the demo guide's order (the clinic leaflet twice) and save it
+    for --replay."""
     from src.cats import load_config
     cfg = load_config(cats_config)
     if embedder:
@@ -392,6 +393,9 @@ def record(path: str, cats_config: str, embedder: Optional[str] = None) -> None:
     ds = DemoState(AgentShieldRuntime(cats_config=cfg))
     steps = []
     for sid in RECORD_SEQUENCE:
+        if sid == "reset":
+            ds.reset()
+            continue
         try:
             steps.append(ds.run_sample(sid))
             print(f"  recorded {sid:<20} -> {steps[-1]['delivery']['action_taken']}")
