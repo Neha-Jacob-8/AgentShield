@@ -546,7 +546,7 @@ async function inspect(requestFn, title) {
 
   // 5. decision
   node("decision", "scanning");
-  $("#dec-src").innerHTML = `Source <b style="color:var(--text)">${esc(a.source_key || "–")}</b> · defense level <span class="lvl ${pol.level || "normal"}">${esc(pol.level || "normal")}</span>${pol.level && pol.level !== "normal" ? " (it attacked before)" : " (first contact)"}`;
+  $("#dec-src").innerHTML = `Source <b style="color:var(--text)">${esc(a.source_key || "–")}</b> · defense level <span class="lvl ${pol.level || "normal"}">${esc(pol.level || "normal")}</span> (${esc(levelWhy(pol))})`;
   await sleep(850); if (id !== RUN) return;
   ["ACCEPT", "SANITIZE", "REJECT"].forEach((k) => $(`#p-${k}`).classList.add(...(k === act ? ["lit", k] : ["dim"])));
   node("decision", `done ${act === "ACCEPT" ? "ok" : act === "SANITIZE" ? "warn" : "bad"}`, undefined, "", "");
@@ -569,6 +569,14 @@ async function inspect(requestFn, title) {
   node("agent", `done ${ag[0]}`, ag[1], act === "REJECT" ? "✕" : "✓", ag[0]);
   beam(false); $("#skip").classList.add("hidden");
   showVerdict(p);
+}
+function levelWhy(pol) {                            // why the defense level is what it is (rule R3 names the causes)
+  const rules = pol.rules_fired || [], r3 = rules.find((r) => r.startsWith("R3")) || "";
+  if (rules.some((r) => r.startsWith("R2"))) return "quarantined after repeated attacks";
+  if (rules.some((r) => r.startsWith("R1"))) return "blocklisted";
+  return r3.includes("suspicion") ? "this source attacked before"
+       : r3.includes("session on alert") ? "the session is on alert after an attack"
+       : r3.includes("minimum level") ? "this tool always gets stricter checks" : "standard checks";
 }
 function setBar(k, x) {
   const label = $(`#sv-${k}`);
@@ -595,7 +603,8 @@ function showVerdict(p) {
     icon = I.block; title = "Blocked: nothing reaches the agent";
     sub = rules.includes("R2") ? "This source is quarantined after repeated attacks. Nothing it sends is analysed or delivered."
         : rules.includes("nothing legitimate left") ? "After removing the attack there was nothing useful left."
-        : pol.level && pol.level !== "normal" ? `This source has attacked before (defense level ${pol.level}), so it gets no second chance.`
+        : levelWhy(pol).startsWith("this source") ? `This source has attacked before (defense level ${pol.level}), so it gets no second chance.`
+        : levelWhy(pol).startsWith("the session") ? "An attack was found earlier in this session, so every source gets stricter checks and no second chance."
         : "The attack could not be safely removed from this response.";
   }
   const t = d.trust_score === null ? "–" : Math.round(d.trust_score), src = p.source || {};
