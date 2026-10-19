@@ -645,7 +645,9 @@ class TestServer(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 403)
         finally:
             httpd.shutdown(); httpd.server_close()
-        self.assertFalse(serve(runtime(), host="127.0.0.1", port=0).RequestHandlerClass is None)
+        srv = serve(runtime(), host="127.0.0.1", port=0)
+        self.assertIsNotNone(srv.RequestHandlerClass)
+        srv.server_close()
 
 
 class TestCLIInput(unittest.TestCase):
