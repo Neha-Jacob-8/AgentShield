@@ -93,7 +93,7 @@ def read_pdf(data: bytes, max_preview_pages: int = 6, zoom: float = 1.5) -> PDFD
         texts.append("\n\n".join(_paragraphs(blocks)))
         if pno < max_preview_pages:
             pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
-            pages.append({"image": data_uri(pix.tobytes("jpeg", jpg_quality=82), "image/jpeg"),
+            pages.append({"image": data_uri(pix.tobytes("jpeg", jpg_quality=70), "image/jpeg"),
                           "width": pix.width, "height": pix.height})
         # filled, non-white shapes: white text drawn on them is visible (e.g. a coloured letterhead)
         dark_fills = [pymupdf.Rect(d["rect"]) for d in page.get_drawings()

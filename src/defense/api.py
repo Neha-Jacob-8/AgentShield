@@ -14,9 +14,11 @@ Console endpoints                         Headless API (same contract as src/def
   POST /api/again         same document, same source, once more (shows adaptive defense)
   GET  /api/state  POST /api/reset  POST /api/intent  GET /api/results/{k}
 
-Each browser tab is its own agent session (X-Session header): visitors of a public deployment never see each
+Each browser tab is its own agent session (X-Session header): visitors of a public link never see each
 other's documents or raise each other's defense level. The models are loaded once and shared, and one
-inspection runs at a time. The console is a client of the headless runtime; AgentShield itself stays
+inspection runs at a time. Remote requests (all of them with --public, which deploy/public_link.sh uses, and
+any that carry proxy headers) cannot read local image files and do not get the samples built from the local
+datasets. The console is a client of the headless runtime; AgentShield itself stays
 headless (methodology §8).
 """
 
@@ -39,7 +41,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -58,6 +61,7 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_SESSIONS = 100                       # browser tabs kept; the least recently used is dropped
 KEEP_RESULTS = 30                        # full results kept per session for reopening (page images are large)
 SESSION_ID = re.compile(r"[A-Za-z0-9_-]{8,64}")
+PROXY_HEADERS = ("cf-connecting-ip", "x-forwarded-for", "forwarded")
 RECORD_SEQUENCE = ["quarterly-report", "docker-guide", "supplier-email", "clinic-report", "clinic-report",
                    "shop-screenshot", "attack-screenshot", "reset", "benchmark-attack"]     # the order in docs/DEMO.md
 SAMPLE_SOURCES = {"clinic-report": "https://files.riverside-cardiology.example/leaflets/PL-114.pdf",
@@ -83,6 +87,11 @@ class InspectRequest(BaseModel):
 
 class IntentRequest(BaseModel):
     user_intent: Optional[str] = None
+
+
+def is_remote(request: Request) -> bool:
+    """True when the request came through a tunnel or proxy (a public link) rather than from this machine."""
+    return any(h in request.headers for h in PROXY_HEADERS)
 
 
 def mark_invisible(text: str) -> str:
@@ -287,9 +296,12 @@ class Sessions:
 # App
 # --------------------------------------------------------------------------- #
 def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional[Dict[str, Any]] = None,
-               warmup: bool = True, allow_image_paths: bool = False) -> FastAPI:
+               warmup: bool = True, allow_image_paths: bool = False, public: bool = False) -> FastAPI:
     sessions = Sessions(runtime if replay is None else None, replay)
     run_lock = threading.Lock()              # one inspection at a time: shared models, PyMuPDF is not thread-safe
+
+    def remote(request: Request) -> bool:
+        return public or is_remote(request)
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -301,15 +313,16 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
     app = FastAPI(title="AgentShield", version="1.0", lifespan=lifespan,
                   description="Adaptive security runtime between AI-agent tools and the agent.")
     app.state.sessions = sessions
+    app.add_middleware(GZipMiddleware, minimum_size=1024)      # page images and the console page, over slow tunnels
 
     def live(ds: DemoState) -> AgentShieldRuntime:
         if ds.rt is None:
             raise HTTPException(503, "replay mode: uploads need the live models; use the samples")
         return ds.rt
 
-    def to_response(req: InspectRequest, tmp_files: List[str]) -> ToolResponse:
+    def to_response(req: InspectRequest, tmp_files: List[str], remote: bool) -> ToolResponse:
         data = req.model_dump(exclude_none=True)
-        if "image_path" in data and not allow_image_paths:
+        if "image_path" in data and (remote or not allow_image_paths):
             raise HTTPException(403, "image_path is disabled; send image_base64")
         if "image_base64" in data:
             try:
@@ -336,11 +349,13 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
         return {"status": "ok", "mode": "replay" if sessions.base is None else "live"}
 
     @app.get("/api/samples")
-    def samples():
+    def samples(request: Request):
         recorded = {(s.get("sample") or {}).get("id") for s in replay["steps"]} if sessions.base is None else None
+        far = remote(request)
         out = []
         for s in SAMPLES:
             available = (s.id in recorded) if recorded is not None else (s.in_repo or s.build() is not None)
+            available = available and (s.in_repo or not far)           # the datasets stay on this machine
             out.append({"id": s.id, "title": s.title, "blurb": s.blurb, "expect": s.expect,
                         "filename": s.filename, "kind": s.filename.rsplit(".", 1)[-1], "available": available})
         return out
@@ -359,7 +374,9 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
         return results[k]
 
     @app.post("/api/sample/{sid}")
-    def run_sample(sid: str, x_session: Optional[str] = Header(None)):
+    def run_sample(sid: str, request: Request, x_session: Optional[str] = Header(None)):
+        if sid in SAMPLE_BY_ID and not SAMPLE_BY_ID[sid].in_repo and remote(request):
+            raise HTTPException(404, f"sample '{sid}' is only available on this machine")
         ds = sessions.get(x_session)
         with run_lock:
             return ds.run_sample(sid)
@@ -406,12 +423,12 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
 
     # ---- headless API --------------------------------------------------------------------
     @app.post("/v1/inspect")
-    def v1_inspect(req: InspectRequest, x_session: Optional[str] = Header(None)):
+    def v1_inspect(req: InspectRequest, request: Request, x_session: Optional[str] = Header(None)):
         rt = live(sessions.get(x_session))
         tmp: List[str] = []
         try:
             with run_lock:
-                return rt.process(to_response(req, tmp)).to_dict()
+                return rt.process(to_response(req, tmp, remote(request))).to_dict()
         finally:
             for f in tmp:
                 os.unlink(f)
@@ -462,6 +479,8 @@ def main(argv=None):
     ap.add_argument("--replay", metavar="PATH", help="serve a saved recording instead of running the models")
     ap.add_argument("--audit_log", default="logs/agentshield_audit.jsonl")
     ap.add_argument("--no_warmup", action="store_true")
+    ap.add_argument("--public", action="store_true",
+                    help="treat every request as remote (sharing through a tunnel): no local files, no dataset samples")
     a = ap.parse_args(argv)
     if a.record:
         record(a.record, a.cats_config, a.embedder)
@@ -475,7 +494,8 @@ def main(argv=None):
         if a.embedder:
             cfg.embedding_backend = a.embedder
         app = create_app(AgentShieldRuntime(cats_config=cfg, audit_log=a.audit_log, user_intent=TASK),
-                         warmup=not a.no_warmup, allow_image_paths=a.host in ("127.0.0.1", "localhost", "::1"))
+                         warmup=not a.no_warmup, public=a.public,
+                         allow_image_paths=a.host in ("127.0.0.1", "localhost", "::1") and not a.public)
     print(f"AgentShield demo console: http://{a.host}:{a.port}   ({'replay' if a.replay else 'live'} mode)")
     uvicorn.run(app, host=a.host, port=a.port, log_level="warning")
 
