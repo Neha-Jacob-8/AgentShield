@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from fastapi.testclient import TestClient
 
 from src.defense import AgentShieldRuntime, DefenseConfig
-from src.defense.api import DemoState, create_app, mark_invisible
+from src.defense.api import DemoState, create_app, mark_invisible, record_steps
 from src.defense.demo_samples import SAMPLE_BY_ID, SAMPLES, clinic_report_pdf, quarterly_report_pdf, text_pdf
 from src.defense.documents import pdf_highlights, read_pdf, sniff_kind
 from tests.test_defense import FakePredictor, cats_engine
@@ -199,6 +199,32 @@ class TestReplay(unittest.TestCase):
         self.assertEqual(c.post("/api/sample/docker-guide").status_code, 409)
         self.assertEqual(c.post("/api/upload", files={"file": ("a.txt", b"x", "text/plain")}).status_code, 503)
         self.assertEqual(c.get("/api/state").json()["mode"], "replay")
+
+
+class TestPublishedRecording(unittest.TestCase):
+    def test_public_recording_holds_only_repo_samples(self):
+        rec = record_steps(DemoState(runtime()), public=True, verbose=False)
+        repo = [s.id for s in SAMPLES if s.in_repo]
+        self.assertEqual([s["id"] for s in rec["samples"]], repo)
+        played = [p["sample"]["id"] for p in rec["steps"]]
+        self.assertEqual(set(played), set(repo))
+        self.assertEqual(played.count("clinic-report"), 2)                      # "send it again"
+
+    def test_pages_build(self):
+        import importlib.util
+        import tempfile
+        spec = importlib.util.spec_from_file_location("pages_build", ROOT / "deploy" / "pages" / "build.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with tempfile.TemporaryDirectory() as d:
+            out = mod.build(Path(d))
+            page = (out / "index.html").read_text(encoding="utf-8")
+            self.assertIn('window.AGENTSHIELD_RECORDING = "recording.json"', page)
+            self.assertNotIn(mod.MARKER, page)
+            rec = json.loads((out / "recording.json").read_text(encoding="utf-8"))
+            repo = {s.id for s in SAMPLES if s.in_repo}
+            self.assertTrue(rec["steps"] and all(p["sample"]["id"] in repo for p in rec["steps"]))   # published data
+            self.assertTrue((out / ".nojekyll").exists())
 
 
 class TestHelpers(unittest.TestCase):
