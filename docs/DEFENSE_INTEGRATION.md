@@ -87,7 +87,7 @@ text branch disagree with the evaluated one on 45 % of images.
 | `src/defense/documents.py` | tool adapters for uploads: PDF text, page images and hidden-text detection; DOCX, HTML, screenshots | — |
 | `src/defense/demo_samples.py` + `demo_samples/` | the demo's sample documents | — |
 | `tests/test_defense.py` | 59 tests (no model weights needed) | — |
-| `tests/test_api.py` | 14 tests for the service, console and document adapters | — |
+| `tests/test_api.py` | 17 tests for the service, console, sessions, public sharing and document adapters | — |
 
 ---
 
@@ -390,7 +390,7 @@ OCR fix (T was 0.95).
 ## 9. Testing
 
 ```bash
-python -m unittest tests.test_api tests.test_defense tests.test_cats    # 131 tests, ~5 s, no model weights needed
+python -m unittest tests.test_api tests.test_defense tests.test_cats    # 134 tests, ~5 s, no model weights needed
 ```
 
 `tests/test_defense.py` (59 tests) uses fake models and covers: config validation; every

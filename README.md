@@ -247,10 +247,10 @@ python -m src.defense.api                                                       
 python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
 python -m src.defense.demo --verbose                                              # a full agent session
 python -m src.defense.server --port 8765                                          # HTTP service
-python -m unittest tests.test_api tests.test_defense tests.test_cats             # 131 tests
+python -m unittest tests.test_api tests.test_defense tests.test_cats             # 134 tests
 ```
 
-To present the project, follow [`docs/DEMO.md`](docs/DEMO.md). You drop a PDF, web page, screenshot or email into the browser console and watch each pipeline step inspect it. The guide includes ready-made samples in [`demo_samples/`](demo_samples), a 7-minute run order, a fallback replay mode, and answers to likely examiner questions.
+`deploy/public_link.sh` shares the console from the laptop through a free public https link. To present the project, follow [`docs/DEMO.md`](docs/DEMO.md). You drop a PDF, web page, screenshot or email into the browser console and watch each pipeline step inspect it. The guide includes ready-made samples in [`demo_samples/`](demo_samples), a 7-minute run order, a fallback replay mode, and answers to likely examiner questions.
 
 ---
 

@@ -41,8 +41,8 @@ Open **http://127.0.0.1:8000**.
 ## The samples
 
 The first four are files in [`demo_samples/`](../demo_samples). You can drag them in from Finder, which shows
-the upload, or click their cards. The last three are built from the local dataset (`data/`), so their cards are
-disabled on a machine without it.
+the upload, or click their cards. The other three are built from the local dataset (`data/`), so their cards are
+hidden on a machine without it, and on the online version.
 
 The results below are for this order, starting from **Reset**. The order matters because the defense adapts:
 after a high-risk attack, the whole session is **on alert** for the next 10 responses. During the alert, an
@@ -104,6 +104,29 @@ repeated attacks through one tool raise that tool's defense level. Each sample c
   - Start the server and open the page.
   - Press **Reset**.
   - Open Finder at `demo_samples/` next to the browser so the files can be dragged in.
+
+## Share a public link
+
+To let others use the console from their own devices, for example examiners or teammates, run:
+
+```bash
+caffeinate -i deploy/public_link.sh     # prints a public https link; Ctrl+C stops sharing
+```
+
+- **Cost and setup.** No account or payment is needed.
+  - Where the network allows it, the link is a Cloudflare quick tunnel (`brew install cloudflared`).
+  - Otherwise it is localhost.run over SSH. Campus networks often block Cloudflare's tunnel port.
+- **When it works.** The link works while the script runs and the laptop is awake and online.
+  It changes every time you start it. `caffeinate` stops the Mac from sleeping.
+- **Speed.** The models run on this Mac, so detection is as fast as locally. The free tunnel adds about
+  2–5 seconds per document.
+- **Privacy and safety.**
+  - Every visitor gets their own session, so they never see each other's documents or make each other's checks stricter.
+  - Visitors cannot read files on the laptop.
+  - Nothing they upload is written to disk.
+- **Samples.** Visitors see only the four samples in `demo_samples/`; the GitHub folder is linked on the page.
+  While you are sharing, your own browser shows the same four. For the full seven-sample run, stop sharing and
+  start `python -m src.defense.api`.
 
 ## If something goes wrong
 
