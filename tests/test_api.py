@@ -7,6 +7,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -123,6 +124,30 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(self.c.post("/api/again").status_code, 409)
         self.assertEqual(self.c.post("/api/sample/nope").status_code, 404)
         self.assertEqual(self.c.get("/api/results/5").status_code, 404)
+
+    def test_sessions_are_isolated(self):
+        a, b = {"X-Session": "tab-aaaaaaaa"}, {"X-Session": "tab-bbbbbbbb"}
+        self.c.post("/api/sample/clinic-report", headers=a)
+        self.assertEqual(len(self.c.get("/api/state", headers=a).json()["history"]), 1)
+        other = self.c.get("/api/state", headers=b).json()
+        self.assertEqual((other["history"], other["sources"], other["can_repeat"]), ([], [], False))
+        self.assertEqual(self.c.get("/api/results/0", headers=b).status_code, 404)
+        self.assertEqual(self.c.post("/api/again", headers=b).status_code, 409)
+        self.assertEqual(self.c.get("/api/state", headers={"X-Session": "bad id!"}).json()["history"], [])  # -> default
+
+    def test_old_results_and_idle_sessions_are_dropped(self):
+        text = {"content": "Revenue grew 14%.", "modality": "text"}
+        with mock.patch("src.defense.api.KEEP_RESULTS", 2):
+            for _ in range(3):
+                self.c.post("/api/inspect", json=text)
+            self.assertEqual(self.c.get("/api/results/0").status_code, 404)
+            self.assertEqual(self.c.get("/api/results/2").json()["delivery"]["action_taken"], "ACCEPT")
+        with mock.patch("src.defense.api.MAX_SESSIONS", 3):            # default + 2 tabs
+            for tab in ("tab-aaaaaaaa", "tab-bbbbbbbb", "tab-cccccccc"):
+                self.c.post("/api/inspect", json=text, headers={"X-Session": tab})
+            self.assertEqual(len(self.c.get("/api/state", headers={"X-Session": "tab-cccccccc"}).json()["history"]), 1)
+            self.assertEqual(self.c.get("/api/state", headers={"X-Session": "tab-aaaaaaaa"}).json()["history"], [])
+            self.assertEqual(len(self.c.get("/api/state").json()["history"]), 3)    # the default session is kept
 
     def test_quarantine_explain_runs_no_model(self):
         for _ in range(7):

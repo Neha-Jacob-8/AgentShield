@@ -14,7 +14,10 @@ Console endpoints                         Headless API (same contract as src/def
   POST /api/again         same document, same source, once more (shows adaptive defense)
   GET  /api/state  POST /api/reset  POST /api/intent  GET /api/results/{k}
 
-The console is a client of the headless runtime; AgentShield itself stays headless (methodology §8).
+Each browser tab is its own agent session (X-Session header): visitors of a public deployment never see each
+other's documents or raise each other's defense level. The models are loaded once and shared, and one
+inspection runs at a time. The console is a client of the headless runtime; AgentShield itself stays
+headless (methodology §8).
 """
 
 from __future__ import annotations
@@ -31,11 +34,12 @@ import json
 import re
 import tempfile
 import threading
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -51,6 +55,9 @@ from .scenarios import TASK
 
 UI_FILE = Path(__file__).with_name("demo_ui") / "index.html"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+MAX_SESSIONS = 100                       # browser tabs kept; the least recently used is dropped
+KEEP_RESULTS = 30                        # full results kept per session for reopening (page images are large)
+SESSION_ID = re.compile(r"[A-Za-z0-9_-]{8,64}")
 RECORD_SEQUENCE = ["quarterly-report", "docker-guide", "supplier-email", "clinic-report", "clinic-report",
                    "shop-screenshot", "attack-screenshot", "reset", "benchmark-attack"]     # the order in docs/DEMO.md
 SAMPLE_SOURCES = {"clinic-report": "https://files.riverside-cardiology.example/leaflets/PL-114.pdf",
@@ -211,6 +218,8 @@ class DemoState:
                              "source": d["analysis"].get("source_key")})
         payload["state"] = self.state()
         self.results.append(payload)
+        if len(self.results) > KEEP_RESULTS:
+            self.results[-KEEP_RESULTS - 1] = None
         return payload
 
     def run_sample(self, sid: str) -> Dict[str, Any]:
@@ -247,25 +256,53 @@ class DemoState:
         return self._remember(p)
 
 
+class Sessions:
+    """One DemoState per browser tab, all sharing the loaded models. Requests without a valid X-Session
+    header (API clients, tests) use the "default" session, which is never dropped."""
+
+    def __init__(self, runtime: Optional[AgentShieldRuntime], replay: Optional[Dict[str, Any]]):
+        self.base, self.replay = runtime, replay
+        self.states: "OrderedDict[str, DemoState]" = OrderedDict(default=DemoState(runtime, replay))
+        self.lock = threading.Lock()
+
+    def get(self, sid: Optional[str]) -> DemoState:
+        sid = sid if sid and SESSION_ID.fullmatch(sid) else "default"
+        with self.lock:
+            ds = self.states.pop(sid, None) or self._new()
+            self.states[sid] = ds                                  # most recently used last
+            while len(self.states) > MAX_SESSIONS:
+                oldest = next(k for k in self.states if k != "default")
+                del self.states[oldest]
+            return ds
+
+    def _new(self) -> DemoState:
+        if self.base is None:
+            return DemoState(None, self.replay)
+        b = self.base
+        return DemoState(AgentShieldRuntime(predictor=b.predictor, cats_engine=b.cats, config=b.config,
+                                            audit_log=b.audit_log, user_intent=TASK))
+
+
 # --------------------------------------------------------------------------- #
 # App
 # --------------------------------------------------------------------------- #
 def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional[Dict[str, Any]] = None,
                warmup: bool = True, allow_image_paths: bool = False) -> FastAPI:
-    ds = DemoState(runtime if replay is None else None, replay)
+    sessions = Sessions(runtime if replay is None else None, replay)
+    run_lock = threading.Lock()              # one inspection at a time: shared models, PyMuPDF is not thread-safe
 
     @asynccontextmanager
     async def lifespan(_app):
-        if warmup and ds.rt is not None:
+        if warmup and sessions.base is not None:
             from .server import warm_up
-            warm_up(ds.rt)
+            warm_up(sessions.base)
         yield
 
     app = FastAPI(title="AgentShield", version="1.0", lifespan=lifespan,
                   description="Adaptive security runtime between AI-agent tools and the agent.")
-    app.state.demo = ds
+    app.state.sessions = sessions
 
-    def live() -> AgentShieldRuntime:
+    def live(ds: DemoState) -> AgentShieldRuntime:
         if ds.rt is None:
             raise HTTPException(503, "replay mode: uploads need the live models; use the samples")
         return ds.rt
@@ -296,11 +333,11 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "mode": "replay" if ds.rt is None else "live"}
+        return {"status": "ok", "mode": "replay" if sessions.base is None else "live"}
 
     @app.get("/api/samples")
     def samples():
-        recorded = {(s.get("sample") or {}).get("id") for s in ds.replay["steps"]} if ds.rt is None else None
+        recorded = {(s.get("sample") or {}).get("id") for s in replay["steps"]} if sessions.base is None else None
         out = []
         for s in SAMPLES:
             available = (s.id in recorded) if recorded is not None else (s.in_repo or s.build() is not None)
@@ -309,74 +346,83 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
         return out
 
     @app.get("/api/state")
-    def state():
-        return ds.state()
+    def state(x_session: Optional[str] = Header(None)):
+        return sessions.get(x_session).state()
 
     @app.get("/api/results/{k}")
-    def result(k: int):
-        try:
-            return ds.results[k]
-        except IndexError:
+    def result(k: int, x_session: Optional[str] = Header(None)):
+        results = sessions.get(x_session).results
+        if not 0 <= k < len(results):
             raise HTTPException(404, "no such result")
+        if results[k] is None:
+            raise HTTPException(404, f"only the last {KEEP_RESULTS} results are kept")
+        return results[k]
 
     @app.post("/api/sample/{sid}")
-    def run_sample(sid: str):
-        with ds.lock:
+    def run_sample(sid: str, x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
+        with run_lock:
             return ds.run_sample(sid)
 
     @app.post("/api/upload")
-    async def upload(file: UploadFile = File(...), source_url: Optional[str] = Form(None)):
-        live()
+    async def upload(file: UploadFile = File(...), source_url: Optional[str] = Form(None),
+                     x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
+        live(ds)
         data = await file.read(MAX_UPLOAD_BYTES + 1)
         if len(data) > MAX_UPLOAD_BYTES:
             raise HTTPException(413, "file larger than 15 MB")
-        with ds.lock:
+        with run_lock:
             return ds.inspect(file.filename or "upload", data, (source_url or "").strip() or None)
 
     @app.post("/api/inspect")
-    def inspect_text(req: InspectRequest):
-        live()
+    def inspect_text(req: InspectRequest, x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
+        live(ds)
         if req.image_base64 or req.image_path:
             raise HTTPException(400, "use /api/upload for images")
         name = {"web": "pasted.html"}.get(req.modality, "pasted.txt")
-        with ds.lock:
+        with run_lock:
             return ds.inspect(name, (req.content or "").encode("utf-8"), req.source_url)
 
     @app.post("/api/again")
-    def again():
-        with ds.lock:
+    def again(x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
+        with run_lock:
             return ds.again()
 
     @app.post("/api/reset")
-    def reset():
+    def reset(x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
         with ds.lock:
             ds.reset()
             return ds.state()
 
     @app.post("/api/intent")
-    def intent(req: IntentRequest):
-        rt = live()
-        rt.user_intent = (req.user_intent or "").strip() or None
+    def intent(req: IntentRequest, x_session: Optional[str] = Header(None)):
+        ds = sessions.get(x_session)
+        live(ds).user_intent = (req.user_intent or "").strip() or None
         return ds.state()
 
     # ---- headless API --------------------------------------------------------------------
     @app.post("/v1/inspect")
-    def v1_inspect(req: InspectRequest):
-        rt = live()
+    def v1_inspect(req: InspectRequest, x_session: Optional[str] = Header(None)):
+        rt = live(sessions.get(x_session))
         tmp: List[str] = []
         try:
-            return rt.process(to_response(req, tmp)).to_dict()
+            with run_lock:
+                return rt.process(to_response(req, tmp)).to_dict()
         finally:
             for f in tmp:
                 os.unlink(f)
 
     @app.get("/v1/state")
-    def v1_state():
-        return live().state.to_dict()
+    def v1_state(x_session: Optional[str] = Header(None)):
+        return live(sessions.get(x_session)).state.to_dict()
 
     @app.post("/v1/session")
-    def v1_session(req: IntentRequest):
-        rt = live()
+    def v1_session(req: IntentRequest, x_session: Optional[str] = Header(None)):
+        rt = live(sessions.get(x_session))
         rt.new_session(req.user_intent)
         return {"status": "new session", "user_intent": rt.user_intent}
 
