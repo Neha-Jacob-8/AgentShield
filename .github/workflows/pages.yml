@@ -1,0 +1,32 @@
+# Publishes the recorded demo (deploy/pages/) to GitHub Pages: https://neha-jacob-8.github.io/AgentShield/
+name: Demo site
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/defense/demo_ui/**", "deploy/pages/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 deploy/pages/build.py _site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -22,3 +22,6 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# GitHub Pages build output (deploy/pages/build.py)
+_site/
