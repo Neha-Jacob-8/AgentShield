@@ -5,14 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentShield</title>
 <!-- static recording -->
+<script>try { const t = localStorage.getItem("agentshield-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <style>
 :root {
-  --bg: #f6f8fa; --surface: #fff; --border: #d0d7de; --border-muted: #e1e4e8; --text: #1f2328; --muted: #59636e; --subtle: #818b98;
-  --accent: #0969da; --accent-bg: #ddf4ff;
+  --bg: #f6f8fa; --surface: #fff; --surface-subtle: #fbfcfd; --head-bg: #f6f8fa; --btn-bg: #f6f8fa; --btn-hover: #eef1f4;
+  --border: #d0d7de; --border-muted: #e1e4e8; --text: #1f2328; --muted: #59636e; --subtle: #818b98;
+  --accent: #0969da; --accent-bg: #ddf4ff; --accent-border: #54aeff; --primary: #1f883d; --primary-hover: #1c8139;
   --ok: #1a7f37; --ok-bg: #dafbe1; --ok-border: #4ac26b;
-  --warn: #9a6700; --warn-bg: #fff8c5; --warn-border: #d4a72c;
-  --bad: #cf222e; --bad-bg: #ffebe9; --bad-border: #ff8182;
+  --warn: #9a6700; --warn-strong: #bf8700; --warn-bg: #fff8c5; --warn-border: #d4a72c;
+  --bad: #cf222e; --bad-bg: #ffebe9; --bad-border: #ff8182; --orange: #bc4c00; --orange-border: #fb8f44;
+  --row-hover: #f6f8fa; --sum-ok: #f4fbf6; --sum-warn: #fffdf0; --sum-bad: #fff8f7;
+  --viewer-bg: #eaeef2; --track: #eaeef2; --hl-removed: #ffcecb; --hl-flagged: #fff1b8;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+/* dark mode: follows the system setting unless the visitor picked a theme (the toggle in the top bar) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1117; --surface: #161b22; --surface-subtle: #0d1117; --head-bg: #1c2128; --btn-bg: #21262d; --btn-hover: #30363d;
+  --border: #30363d; --border-muted: #21262d; --text: #e6edf3; --muted: #9198a1; --subtle: #6e7681;
+  --accent: #4493f8; --accent-bg: rgba(56,139,253,.15); --accent-border: #1f6feb; --primary: #238636; --primary-hover: #2ea043;
+  --ok: #3fb950; --ok-bg: rgba(46,160,67,.15); --ok-border: rgba(46,160,67,.6);
+  --warn: #d29922; --warn-strong: #bb8009; --warn-bg: rgba(187,128,9,.15); --warn-border: rgba(187,128,9,.6);
+  --bad: #f85149; --bad-bg: rgba(248,81,73,.1); --bad-border: rgba(248,81,73,.6); --orange: #db6d28; --orange-border: rgba(219,109,40,.6);
+  --row-hover: #1c2128; --sum-ok: rgba(46,160,67,.08); --sum-warn: rgba(187,128,9,.08); --sum-bad: rgba(248,81,73,.08);
+  --viewer-bg: #010409; --track: #30363d; --hl-removed: rgba(248,81,73,.3); --hl-flagged: rgba(187,128,9,.3);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0d1117; --surface: #161b22; --surface-subtle: #0d1117; --head-bg: #1c2128; --btn-bg: #21262d; --btn-hover: #30363d;
+  --border: #30363d; --border-muted: #21262d; --text: #e6edf3; --muted: #9198a1; --subtle: #6e7681;
+  --accent: #4493f8; --accent-bg: rgba(56,139,253,.15); --accent-border: #1f6feb; --primary: #238636; --primary-hover: #2ea043;
+  --ok: #3fb950; --ok-bg: rgba(46,160,67,.15); --ok-border: rgba(46,160,67,.6);
+  --warn: #d29922; --warn-strong: #bb8009; --warn-bg: rgba(187,128,9,.15); --warn-border: rgba(187,128,9,.6);
+  --bad: #f85149; --bad-bg: rgba(248,81,73,.1); --bad-border: rgba(248,81,73,.6); --orange: #db6d28; --orange-border: rgba(219,109,40,.6);
+  --row-hover: #1c2128; --sum-ok: rgba(46,160,67,.08); --sum-warn: rgba(187,128,9,.08); --sum-bad: rgba(248,81,73,.08);
+  --viewer-bg: #010409; --track: #30363d; --hl-removed: rgba(248,81,73,.3); --hl-flagged: rgba(187,128,9,.3);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
@@ -27,10 +55,12 @@ svg { display: block; flex: none; }
 
 /* ---------- controls ---------- */
 .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border);
-  background: #f6f8fa; font-weight: 500; cursor: pointer; white-space: nowrap; }
-.btn:hover { background: #eef1f4; }
-.btn-primary { background: #1f883d; border-color: rgba(31,35,40,.15); color: #fff; }
-.btn-primary:hover { background: #1c8139; }
+  background: var(--btn-bg); font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--btn-hover); }
+.btn-primary { background: var(--primary); border-color: rgba(31,35,40,.15); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.iconbtn { width: 32px; padding: 0; justify-content: center; }
+.iconbtn svg { width: 16px; height: 16px; }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
 .btn:disabled { opacity: .5; cursor: default; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; }
@@ -39,12 +69,12 @@ svg { display: block; flex: none; }
 .input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .label { display: inline-block; padding: 0 7px; border-radius: 2em; border: 1px solid var(--border); font-size: 12px; font-weight: 500; line-height: 20px; white-space: nowrap; }
 .label-ok { color: var(--ok); border-color: var(--ok-border); } .label-warn { color: var(--warn); border-color: var(--warn-border); }
-.label-bad { color: var(--bad); border-color: var(--bad-border); } .label-accent { color: var(--accent); border-color: #54aeff; }
+.label-bad { color: var(--bad); border-color: var(--bad-border); } .label-accent { color: var(--accent); border-color: var(--accent-border); }
 .lvl { text-transform: capitalize; }
 .lvl.normal { color: var(--ok); border-color: var(--ok-border); } .lvl.elevated { color: var(--warn); border-color: var(--warn-border); }
-.lvl.high { color: #bc4c00; border-color: #fb8f44; } .lvl.quarantined { color: #fff; background: var(--bad); border-color: var(--bad); }
+.lvl.high { color: var(--orange); border-color: var(--orange-border); } .lvl.quarantined { color: #fff; background: var(--bad); border-color: var(--bad); }
 .counter { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 2em; background: rgba(175,184,193,.3); font-size: 12px; font-weight: 500; line-height: 18px; text-align: center; }
-.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #d0d7de; border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
 .spinner.lg { width: 22px; height: 22px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .flash { padding: 10px 14px; border-radius: 6px; border: 1px solid; font-size: 13.5px; }
@@ -65,7 +95,7 @@ svg { display: block; flex: none; }
 .box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
 #home .box + .box { margin-top: 16px; }
 .box-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 41px; padding: 8px 16px;
-  background: #f6f8fa; border-bottom: 1px solid var(--border); border-radius: 6px 6px 0 0; }
+  background: var(--head-bg); border-bottom: 1px solid var(--border); border-radius: 6px 6px 0 0; }
 .box-head h2 { font-size: 14px; font-weight: 600; }
 .box-body { padding: 16px; }
 
@@ -74,15 +104,17 @@ svg { display: block; flex: none; }
 .page-head h1 { font-size: 22px; font-weight: 600; }
 .page-head p { color: var(--muted); margin-top: 4px; max-width: 760px; }
 #static-note { margin-bottom: 16px; }
-.dropzone { padding: 28px 16px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; background: #fbfcfd; }
+.dropzone { padding: 28px 16px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; background: var(--surface-subtle); }
 .dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--accent-bg); }
 .dropzone p + p { margin-top: 4px; }
 .row-actions { display: flex; gap: 8px; margin-top: 12px; }
 .table { width: 100%; border-collapse: collapse; }
 .table th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--muted); padding: 8px 16px; border-bottom: 1px solid var(--border); }
 .table td { padding: 10px 16px; border-bottom: 1px solid var(--border-muted); vertical-align: middle; }
-.table tr:last-child td { border-bottom: 0; }
-.table tbody tr:hover { background: #f6f8fa; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:not(.group):hover { background: var(--row-hover); }
+.table tr.group th { padding: 6px 16px; background: var(--head-bg); border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); color: var(--text); font-size: 12.5px; }
+.table tbody tr.group:first-child th { border-top: 0; }
 .table .right { text-align: right; }
 
 /* ---------- run view ---------- */
@@ -95,9 +127,9 @@ svg { display: block; flex: none; }
   background: var(--surface); border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; }
 .summary h2 { font-size: 15px; font-weight: 600; }
 .summary p { color: var(--muted); font-size: 13px; margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.summary.ACCEPT { border-color: var(--ok-border); border-left-color: var(--ok); background: #f4fbf6; }
-.summary.SANITIZE { border-color: var(--warn-border); border-left-color: #bf8700; background: #fffdf0; }
-.summary.REJECT { border-color: var(--bad-border); border-left-color: var(--bad); background: #fff8f7; }
+.summary.ACCEPT { border-color: var(--ok-border); border-left-color: var(--ok); background: var(--sum-ok); }
+.summary.SANITIZE { border-color: var(--warn-border); border-left-color: var(--warn-strong); background: var(--sum-warn); }
+.summary.REJECT { border-color: var(--bad-border); border-left-color: var(--bad); background: var(--sum-bad); }
 .summary .sicon svg { width: 22px; height: 22px; }
 .summary.ACCEPT .sicon { color: var(--ok); } .summary.SANITIZE .sicon { color: var(--warn); } .summary.REJECT .sicon { color: var(--bad); }
 .facts { display: flex; gap: 22px; margin: 0; padding: 0 16px; border-left: 1px solid var(--border-muted); border-right: 1px solid var(--border-muted); }
@@ -112,7 +144,7 @@ svg { display: block; flex: none; }
 @keyframes slide { from { left: -30%; } to { left: 100%; } }
 
 /* document viewer */
-.viewer { background: #eaeef2; }
+.viewer { background: var(--viewer-bg); }
 .viewer-inner { padding: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .loading { padding: 60px 20px; color: var(--muted); }
 .page { position: relative; width: 100%; max-width: 680px; background: #fff; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(31,35,40,.12); }
@@ -124,7 +156,7 @@ svg { display: block; flex: none; }
 .hl.hidden-text { outline: 2px dashed var(--bad); background: rgba(207,34,46,.06); }
 .hl.cut.lead::after { content: "Removed"; position: absolute; right: -2px; top: -21px; padding: 1px 6px; border-radius: 3px;
   background: var(--bad); color: #fff; font: 600 11px/18px -apple-system, "Segoe UI", Arial, sans-serif; }
-.callout { position: absolute; left: 4%; right: 4%; padding: 8px 12px; background: #fff; border: 1px solid var(--bad-border); border-left: 3px solid var(--bad);
+.callout { position: absolute; left: 4%; right: 4%; padding: 8px 12px; background: var(--surface); border: 1px solid var(--bad-border); border-left: 3px solid var(--bad);
   border-radius: 4px; font-size: 13px; line-height: 1.45; box-shadow: 0 3px 10px rgba(31,35,40,.15); opacity: 0; transition: opacity .35s; }
 .callout.on { opacity: 1; }
 .callout b { display: block; color: var(--bad); font-size: 12px; margin-bottom: 2px; }
@@ -134,29 +166,29 @@ svg { display: block; flex: none; }
   background: var(--bad-bg); font-size: 13.5px; opacity: 0; transition: opacity .35s; }
 .reveal.on { opacity: 1; }
 .reveal b { display: block; color: var(--bad); font-size: 12.5px; margin-bottom: 2px; }
-.textdoc { width: 100%; max-width: 760px; padding: 16px 18px; background: #fff; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word;
+.textdoc { width: 100%; max-width: 760px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word;
   font: 13px/1.6 var(--mono); }
 .seg { transition: background .35s; }
-.seg.on.removed { background: #ffcecb; outline: 1px solid var(--bad-border); }
-.seg.on.flagged { background: #fff1b8; }
+.seg.on.removed { background: var(--hl-removed); outline: 1px solid var(--bad-border); }
+.seg.on.flagged { background: var(--hl-flagged); }
 .seg.cut { text-decoration: line-through; text-decoration-color: var(--bad); }
 .inv { color: #fff; background: var(--bad); border-radius: 3px; padding: 0 3px; font-size: 10.5px; font-weight: 600; }
 .imgwrap { position: relative; width: 100%; max-width: 720px; border: 1px solid var(--border); background: #fff; }
 .imgwrap img { display: block; width: 100%; }
 .ocr { position: absolute; border: 1px solid #0969da; background: rgba(9,105,218,.08); opacity: 0; transition: opacity .35s; }
 .ocr.on { opacity: 1; }
-.vitbadge { position: absolute; top: 8px; right: 8px; background: #fff; opacity: 0; transition: opacity .35s; }
+.vitbadge { position: absolute; top: 8px; right: 8px; background: var(--surface); opacity: 0; transition: opacity .35s; }
 .vitbadge.on { opacity: 1; }
 
 /* inspection steps */
 .steps { list-style: none; margin: 0; padding: 4px 0; }
 .step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-muted); }
 .step:last-child { border-bottom: 0; }
-.step.scanning { background: #f6f8fa; }
+.step.scanning { background: var(--row-hover); }
 .st-icon { width: 20px; height: 20px; display: grid; place-items: center; margin-top: 1px; }
 .st-icon svg { width: 18px; height: 18px; }
-.step.ok .st-icon { color: var(--ok); } .step.warn .st-icon { color: #bf8700; } .step.bad .st-icon { color: var(--bad); } .step.skip .st-icon { color: var(--subtle); }
-.dot-pending { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #d0d7de; }
+.step.ok .st-icon { color: var(--ok); } .step.warn .st-icon { color: var(--warn-strong); } .step.bad .st-icon { color: var(--bad); } .step.skip .st-icon { color: var(--subtle); }
+.dot-pending { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); }
 .st-head { display: flex; justify-content: space-between; gap: 12px; }
 .st-head b { font-weight: 600; }
 .step.pending .st-head b, .step.skip .st-head b { color: var(--muted); font-weight: 500; }
@@ -169,7 +201,7 @@ svg { display: block; flex: none; }
 .mini td { padding: 5px 8px; border: 1px solid var(--border-muted); }
 .mini td:first-child { width: 42%; color: var(--muted); }
 .mini td:nth-child(2) { width: 18%; font-family: var(--mono); font-weight: 600; }
-.meter { position: relative; height: 6px; border-radius: 3px; background: #eaeef2; overflow: hidden; }
+.meter { position: relative; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
 .meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; transition: width .7s ease; }
 .kvline { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .kvline + .meter { margin-top: 8px; max-width: 320px; }
@@ -177,8 +209,8 @@ svg { display: block; flex: none; }
 .segmented span { padding: 4px 14px; font-size: 13px; font-weight: 500; color: var(--muted); border-right: 1px solid var(--border); background: var(--surface); }
 .segmented span:last-child { border-right: 0; }
 .segmented span.sel { color: #fff; }
-.segmented .sel.ACCEPT { background: var(--ok); } .segmented .sel.SANITIZE { background: #bf8700; } .segmented .sel.REJECT { background: var(--bad); }
-.segmented span.off { color: var(--subtle); background: #f6f8fa; }
+.segmented .sel.ACCEPT { background: var(--primary); } .segmented .sel.SANITIZE { background: var(--warn-strong); } .segmented .sel.REJECT { background: #cf222e; }
+.segmented span.off { color: var(--subtle); background: var(--head-bg); }
 
 /* drawers, modals, toast */
 .scrim { position: fixed; inset: 0; background: rgba(31,35,40,.4); z-index: 40; }
@@ -193,7 +225,7 @@ svg { display: block; flex: none; }
 .src { padding: 10px 0; border-top: 1px solid var(--border-muted); }
 .src .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .src .row b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.smeter { position: relative; height: 6px; border-radius: 3px; background: #eaeef2; margin-top: 8px; }
+.smeter { position: relative; height: 6px; border-radius: 3px; background: var(--track); margin-top: 8px; }
 .smeter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
 .smeter u { position: absolute; top: -3px; width: 1px; height: 12px; background: var(--subtle); }
 .meta { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
@@ -211,10 +243,10 @@ svg { display: block; flex: none; }
 .cmpbox { padding: 14px 16px; border: 1px solid var(--border); border-radius: 6px; white-space: pre-wrap; word-break: break-word; font-size: 13.5px; line-height: 1.6;
   max-height: 62vh; overflow: auto; }
 .cmpbox.REJECT { background: var(--bad-bg); }
-.cmpbox .notice { display: block; margin-top: 12px; padding: 8px 10px; border-radius: 6px; background: #f6f8fa; border: 1px solid var(--border-muted); color: var(--muted); font-size: 13px; }
-.cmpbox .gone { background: #ffcecb; text-decoration: line-through; text-decoration-color: var(--bad); }
+.cmpbox .notice { display: block; margin-top: 12px; padding: 8px 10px; border-radius: 6px; background: var(--head-bg); border: 1px solid var(--border-muted); color: var(--muted); font-size: 13px; }
+.cmpbox .gone { background: var(--hl-removed); text-decoration: line-through; text-decoration-color: var(--bad); }
 .cmpbox .ghost { display: block; margin-bottom: 10px; padding: 6px 10px; border: 1px dashed var(--bad); border-radius: 4px; background: var(--bad-bg); }
-textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); resize: vertical; font: 13px/1.5 var(--mono); }
+textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); resize: vertical; font: 13px/1.5 var(--mono); }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; max-width: 90vw; padding: 10px 16px; border-radius: 6px;
   background: #24292f; color: #fff; font-size: 13.5px; box-shadow: 0 8px 24px rgba(31,35,40,.25); display: none; }
 .toast.on { display: block; }
@@ -234,6 +266,7 @@ textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radi
   <span id="mode" class="label label-ok">Live</span>
   <button class="btn" id="session-btn">Session <span class="counter" id="src-count">0</span></button>
   <button class="btn" id="reset">Reset</button>
+  <button class="btn iconbtn" id="theme-btn" title="Switch theme" aria-label="Switch theme"></button>
 </header>
 
 <main>
@@ -241,7 +274,7 @@ textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radi
 <section id="home" class="container">
   <div class="page-head">
     <h1>Inspect a tool response</h1>
-    <p>Upload what an AI agent's tool returned: a PDF, a web page, a screenshot or text. AgentShield checks it for prompt
+    <p>Upload what an AI agent's tool returned: a PDF, a web page or a screenshot. AgentShield checks it for prompt
       injection and shows each step of the inspection.</p>
   </div>
   <div class="flash flash-warn hidden" id="static-note"></div>
@@ -250,7 +283,7 @@ textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radi
     <div class="box-body">
       <div class="dropzone" id="drop">
         <p><b>Drag and drop a file here</b>, or <button class="linkbtn" id="choose">choose a file</button>.</p>
-        <p class="muted small">PDF, HTML, screenshots (PNG, JPG, WEBP), DOCX, TXT or Markdown, up to 15 MB.</p>
+        <p class="muted small">PDF documents, web pages (HTML) and screenshots (PNG, JPG, WEBP), up to 15 MB. DOCX and plain text also work.</p>
         <input type="file" id="file" class="hidden" accept=".pdf,.html,.htm,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.docx">
       </div>
       <div class="row-actions"><button class="btn" id="paste-open">Paste text instead</button></div>
@@ -260,7 +293,7 @@ textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radi
     <div class="box-head"><h2>Sample documents</h2>
       <div style="display:flex;align-items:center;gap:12px"><span class="muted small">Files in <a href="https://github.com/Neha-Jacob-8/AgentShield/tree/main/demo_samples" target="_blank" rel="noopener">demo_samples/</a></span>
         <button class="btn btn-sm" id="tour-btn">Run guided tour</button></div></div>
-    <table class="table"><thead><tr><th>Name</th><th>Type</th><th>Description</th><th></th></tr></thead><tbody id="samples"></tbody></table>
+    <table class="table"><thead><tr><th>Name</th><th>Description</th><th></th></tr></thead><tbody id="samples"></tbody></table>
   </div>
 </section>
 
@@ -296,7 +329,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<
 const f2 = (x) => (x === null || x === undefined) ? "–" : Number(x).toFixed(2);
 const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
 const tone = (x) => x >= .7 ? "bad" : x >= .3 ? "warn" : "ok";
-const COLORS = {ok: "var(--ok)", warn: "#bf8700", bad: "var(--bad)"};
+const COLORS = {ok: "var(--ok)", warn: "var(--warn-strong)", bad: "var(--bad)"};
 const ACTION = {ACCEPT: ["Delivered", "label-ok"], SANITIZE: ["Cleaned", "label-warn"], REJECT: ["Blocked", "label-bad"]};
 const svg = (d, w = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const I = {
@@ -304,6 +337,8 @@ const I = {
   alert: svg('<path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>'),
   x: svg('<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>'),
   minus: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'),
+  moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
 };
 let SAMPLES = [], STATE = {}, RESULTS = [], RUN = 0, SKIP = null;
 
@@ -358,11 +393,17 @@ function sleep(ms) { return SKIP.done ? Promise.resolve() : Promise.race([new Pr
 function ftype(name) { const e = (name || "").split(".").pop().toLowerCase(); return {htm: "html", jpeg: "jpg"}[e] || (["pdf", "html", "txt", "md", "png", "jpg", "docx"].includes(e) ? e : "txt"); }
 
 /* ============================================================ home */
+// the three kinds of tool output the project covers
+const GROUPS = [["pdf", "PDF documents"], ["web", "Web pages"], ["image", "Images (screenshots)"]];
+const modalityOf = (s) => s.modality || ({pdf: "pdf", html: "web", png: "image", jpg: "image"}[s.kind] || "web");
 function renderSamples() {
-  $("#samples").innerHTML = SAMPLES.filter((s) => s.available).map((s) => `
-    <tr><td><b>${esc(s.title)}</b><div class="mono muted">${esc(s.filename)}</div></td>
-      <td><span class="label">${esc(s.kind.toUpperCase())}</span></td><td class="muted">${esc(s.blurb)}</td>
-      <td class="right"><button class="btn btn-sm" data-id="${s.id}">Inspect</button></td></tr>`).join("");
+  const avail = SAMPLES.filter((s) => s.available);
+  $("#samples").innerHTML = GROUPS.map(([m, name]) => {
+    const rows = avail.filter((s) => modalityOf(s) === m);
+    return rows.length ? `<tr class="group"><th colspan="3">${name}</th></tr>` + rows.map((s) => `
+      <tr><td><b>${esc(s.title)}</b><div class="mono muted">${esc(s.filename)}</div></td><td class="muted">${esc(s.blurb)}</td>
+        <td class="right"><button class="btn btn-sm" data-id="${s.id}">Inspect</button></td></tr>`).join("") : "";
+  }).join("");
   document.querySelectorAll("#samples [data-id]").forEach((b) => b.onclick = () => {
     const s = SAMPLES.find((x) => x.id === b.dataset.id); inspect(() => post(`/api/sample/${s.id}`), s.filename);
   });
@@ -473,7 +514,7 @@ function renderDoc(p) {
     $("#viewer-sub").textContent = "Rendered page, as a person sees it";
     v.innerHTML = `<div class="cap">What a person sees</div><iframe class="webframe" sandbox="" id="webframe"></iframe>` +
       (ex.hidden || []).map((h) => `<div class="reveal" data-stage="filter"><b>Hidden from people (${esc(h.reason)}); the agent would read it</b>“${esc(h.preview)}”</div>`).join("") +
-      segmentsDoc(ex, "What the agent would read");
+      obfuscation(ex, d, "Page text as written (red marks are invisible characters)") + segmentsDoc(ex, "What the agent would read");
     $("#webframe").srcdoc = d.html || "";
   } else if (d.kind === "image") {
     $("#viewer-sub").textContent = "Screenshot returned by the tool";
@@ -484,13 +525,16 @@ function renderDoc(p) {
       (ocr ? `<div class="cap">Text read from the image (OCR)</div><div class="textdoc">${esc(ocr)}</div>` : "");
   } else {
     $("#viewer-sub").textContent = d.kind === "docx" ? "Text extracted from the document" : "Text returned by the tool";
-    let h = "";
-    if (ex.unicode) h += `<div class="reveal" data-stage="filter"><b>Invisible characters found</b>${ex.unicode.zero_width_in_words} zero-width characters inside words and ${ex.unicode.bidi_controls} direction-control character${ex.unicode.bidi_controls === 1 ? "" : "s"}${ex.unicode.smuggled_text ? `, plus smuggled text “${esc(ex.unicode.smuggled_text)}”` : ""}. They split words apart so that keyword filters miss them.</div>`;
-    (ex.encoded || []).forEach((e) => h += `<div class="reveal" data-stage="filter"><b>Encoded text found (base64)</b>Decodes to: “${esc(e.decoded_preview)}”</div>`);
-    if (d.text && ex.unicode) h += `<div class="cap">As written (red marks are invisible characters)</div><div class="textdoc">${esc(d.text).replace(/⟨([A-Z ]+?)⟩/g, '<span class="inv">$1</span>')}</div>`;
-    h += segmentsDoc(ex, ex.unicode ? "After removing the invisible characters" : null, d.text);
-    v.innerHTML = h;
+    v.innerHTML = obfuscation(ex, d, "As written (red marks are invisible characters)") +
+      segmentsDoc(ex, ex.unicode ? "After removing the invisible characters" : null, d.text);
   }
+}
+function obfuscation(ex, d, caption) {                // invisible characters and encoded text, for web pages and text
+  let h = "";
+  if (ex.unicode) h += `<div class="reveal" data-stage="filter"><b>Invisible characters found</b>${ex.unicode.zero_width_in_words} zero-width characters inside words and ${ex.unicode.bidi_controls} direction-control character${ex.unicode.bidi_controls === 1 ? "" : "s"}${ex.unicode.smuggled_text ? `, plus smuggled text “${esc(ex.unicode.smuggled_text)}”` : ""}. They split words apart so that keyword filters miss them.</div>`;
+  (ex.encoded || []).forEach((e) => h += `<div class="reveal" data-stage="filter"><b>Encoded text found (base64)</b>Decodes to: “${esc(e.decoded_preview)}”</div>`);
+  if (d.text && ex.unicode) h += `<div class="cap">${caption}</div><div class="textdoc">${esc(d.text).replace(/⟨([A-Z ]+?)⟩/g, '<span class="inv">$1</span>')}</div>`;
+  return h;
 }
 function segmentsDoc(ex, caption, fallback) {
   if (!ex.segments || !ex.segments.length) return fallback ? `<div class="textdoc">${esc(fallback)}</div>` : "";
@@ -618,12 +662,14 @@ function showVerdict(p) {
     title = s && s.removed ? `Cleaned: ${s.removed} attack sentence${s.removed > 1 ? "s" : ""} removed` : hid ? "Cleaned: hidden text removed" : "Delivered with a caution note";
     sub = pol.salvaged ? "The document carried an attack. The source had not attacked before, so the attack was removed and the rest was delivered."
                        : "The attack was removed; the rest of the content goes to the agent.";
+    if (d.modality === "image") { title = "Screenshot withheld: only its cleaned text is delivered"; sub = "A picture cannot be partly cleaned, so the agent gets the OCR text with the attack removed."; }
   } else {
-    icon = I.x; title = "Blocked: nothing reaches the agent";
+    icon = I.x; title = d.modality === "image" ? "Blocked: the screenshot is withheld" : "Blocked: nothing reaches the agent";
     sub = rules.includes("R2") ? "This source is quarantined after repeated attacks. Nothing it sends is analysed or delivered."
         : rules.includes("nothing legitimate left") ? "After removing the attack there was nothing useful left."
         : levelWhy(pol).startsWith("this source") ? `This source has attacked before (defense level ${pol.level}), so it is not given a second chance.`
         : levelWhy(pol).startsWith("the session") ? "An attack was found earlier in this session, so every source gets stricter checks."
+        : d.modality === "image" ? "The screenshot carries an attack, and a picture cannot be partly cleaned, so it is not passed on."
         : "The attack could not be removed safely from this response.";
   }
   const t = d.trust_score === null ? "–" : Math.round(d.trust_score), src = p.source || {};
@@ -700,15 +746,15 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOverl
 
 /* ============================================================ guided tour (#tour) */
 // The demo guide's order (docs/DEMO.md); steps whose sample is not available are left out.
-const TOUR = [["quarterly-report", "A clean business report: it should pass straight through"],
-              ["docker-guide", "A blog page with a block of text hidden from people"],
-              ["supplier-email", "An email whose attack is split apart by invisible characters"],
-              ["clinic-report", "A patient leaflet with invisible white text aimed at the AI"],
-              ["again", "The same leaflet from the same website, sent a second time"],
-              ["shop-screenshot", "A normal shopping screenshot: vision model plus OCR text"],
-              ["attack-screenshot", "A web screenshot that carries an attack"],
+const TOUR = [["quarterly-report", "PDF: a clean business report that should pass straight through"],
+              ["docker-guide", "Web page: a blog with a block of text hidden from people"],
+              ["supplier-invoice", "Web page: an invoice whose attack is split apart by invisible characters"],
+              ["clinic-report", "PDF: a patient leaflet with invisible white text aimed at the AI"],
+              ["again", "PDF: the same leaflet from the same website, sent a second time"],
+              ["shop-page", "Image: a normal screenshot of a web shop"],
+              ["checkout-attack", "Image: a checkout screenshot telling AI agents to pay without asking"],
               ["reset", ""],
-              ["benchmark-attack", "Real benchmark data: the attack is in the last line, past 256 tokens"]];
+              ["benchmark-attack", "PDF: real benchmark data; the attack is in the last line, past 256 tokens"]];
 let TOUR_ON = false, TOUR_WAKE = null;
 function stopTour() { if (!TOUR_ON) return; TOUR_ON = false; $("#tourbar").classList.add("hidden"); if (TOUR_WAKE) TOUR_WAKE(); }
 function tourWait(ms) { return new Promise((r) => { const t = setTimeout(r, ms); TOUR_WAKE = () => { clearTimeout(t); r(); }; }); }
@@ -743,6 +789,16 @@ $("#back").onclick = showHome; $("#home-link").onclick = showHome;
 $("#session-btn").onclick = openSession;
 $("#tour-btn").onclick = () => setTimeout(tour, 0);
 $("#tour-stop").onclick = stopTour;
+const DARK_QUERY = matchMedia("(prefers-color-scheme: dark)");
+const isDark = () => (document.documentElement.dataset.theme || (DARK_QUERY.matches ? "dark" : "light")) === "dark";
+function showThemeButton() { const b = $("#theme-btn"); b.innerHTML = isDark() ? I.sun : I.moon; b.title = isDark() ? "Switch to light mode" : "Switch to dark mode"; }
+$("#theme-btn").onclick = () => {
+  const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("agentshield-theme", t); } catch (e) {}
+  showThemeButton();
+};
+DARK_QUERY.addEventListener("change", showThemeButton);
+showThemeButton();
 $("#reset").onclick = async () => { const s = await post("/api/reset").catch((e) => toast(e.message)); if (s) { RESULTS = []; renderSession(s); showHome(); toast("New session: source reputation cleared."); } };
 $("#task").onchange = async () => { const s = await post("/api/intent", {user_intent: $("#task").value}).catch((e) => toast(e.message)); if (s) { renderSession(s); toast("Agent task updated."); } };
 (async () => {
