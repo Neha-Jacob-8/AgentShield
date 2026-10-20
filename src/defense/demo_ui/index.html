@@ -608,6 +608,7 @@ function animateText(el, text) {
    into the element `to()` returns on the new page. Without the API, or with reduced motion, the change is instant. */
 function swap(update, from, to) {
   if (!document.startViewTransition || REDUCED.matches) { update(); return Promise.resolve(); }
+  swap.n = (swap.n || 0) + 1;
   if (from) from.style.viewTransitionName = "doc-title";
   const t = document.startViewTransition(() => {
     if (from) from.style.viewTransitionName = "";
@@ -615,7 +616,10 @@ function swap(update, from, to) {
     const dst = from && to && to(); if (dst) dst.style.viewTransitionName = "doc-title";
   });
   t.finished.finally(() => { const dst = to && to(); if (dst) dst.style.viewTransitionName = ""; });
-  return t.updateCallbackDone.catch(() => {});
+  // until the page has actually changed, other code must not act on the old page (see inspect)
+  const done = t.updateCallbackDone.catch(() => {}), n = swap.n;
+  swap.busy = done.then(() => { if (swap.n === n) swap.busy = null; });
+  return done;
 }
 
 // each browser tab is its own agent session (kept across reloads of the tab)
@@ -1019,6 +1023,8 @@ const scanning = (on) => $("#scan").classList.toggle("on", on);
 /* ============================================================ the inspection */
 async function inspect(requestFn, title, fromEl) {
   const id = ++RUN; newSkip();
+  while (swap.busy) await swap.busy;                // a page change still in flight finishes first
+  if (id !== RUN) return;
   const setup = () => {
     if (VIEW !== "inspect") { history.replaceState(null, "", "#inspect"); applyView("inspect"); }
     $("#home").classList.add("hidden"); $("#run").classList.remove("hidden"); window.scrollTo(0, 0);
