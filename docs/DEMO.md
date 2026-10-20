@@ -36,6 +36,7 @@ Open **http://127.0.0.1:8000**.
 | **Agent task** (top) | The agent's task; it changes the "fit with the agent's task" part of the trust score |
 | **Reset** | Starts a new session: clears source reputation, the alert and the history |
 | **Theme button** (top right) | Light or dark mode. The page follows the computer's setting until you pick one |
+| **How it works / Results / About** (top) | The pipeline and each component, the test-set results with charts, and the project's modules and plans. Useful to open before or after the live run |
 
 `#sample=<id>` in the address runs a sample directly, for example `http://127.0.0.1:8000/#sample=clinic-report`.
 
