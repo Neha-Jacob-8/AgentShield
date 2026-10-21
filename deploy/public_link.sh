@@ -11,7 +11,25 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT=${PORT:-8000}
-PY=${PYTHON:-python3}
+
+# the first python with the console's packages: $PYTHON, then python3 on the PATH, then conda's base environment
+# (another python3 can come first on the PATH when conda is not activated)
+PY=${PYTHON:-}
+if [ -z "$PY" ]; then
+  CONDA_BASE=$(conda info --base 2>/dev/null || true)
+  for c in python3 ${CONDA_BASE:+"$CONDA_BASE/bin/python3"} /opt/anaconda3/bin/python3 /opt/miniconda3/bin/python3 \
+           "$HOME/anaconda3/bin/python3" "$HOME/miniconda3/bin/python3"; do
+    if command -v "$c" >/dev/null && "$c" -c "import fastapi, uvicorn, torch, transformers" 2>/dev/null; then
+      PY=$c
+      break
+    fi
+  done
+  if [ -z "$PY" ]; then
+    echo "no python3 with the console's packages found: pip install -r requirements.txt, or run PYTHON=/path/to/python3 $0" >&2
+    exit 1
+  fi
+fi
+echo "using $(command -v "$PY")"
 
 if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null; then
   echo "port $PORT is in use: stop the running console first, or run PORT=8010 $0" >&2
@@ -25,7 +43,7 @@ trap 'kill $SERVER $TUNNEL 2>/dev/null; rm -f "$LOG"' EXIT
 SERVER=$!
 echo "loading the models ..."
 until curl -sf "http://127.0.0.1:$PORT/health" >/dev/null; do
-  kill -0 "$SERVER" 2>/dev/null || { echo "the console did not start" >&2; exit 1; }
+  kill -0 "$SERVER" 2>/dev/null || { echo "the console did not start (with $PY): see the error above" >&2; exit 1; }
   sleep 1
 done
 
