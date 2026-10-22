@@ -364,7 +364,11 @@ def create_app(runtime: Optional[AgentShieldRuntime] = None, *, replay: Optional
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "mode": "replay" if sessions.base is None else "live"}
+        out = {"status": "ok", "mode": "replay" if sessions.base is None else "live"}
+        model = sessions.base is not None and getattr(sessions.base.predictor, "deberta_model_path", None)
+        if model:
+            out["text_model"] = Path(model).name           # which DeBERTa the console runs (models/<name>)
+        return out
 
     @app.get("/api/samples")
     def samples(request: Request):

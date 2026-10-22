@@ -138,6 +138,10 @@ To let others use the console from their own devices, for example examiners or t
 caffeinate -i deploy/public_link.sh     # prints a public https link; Ctrl+C stops sharing
 ```
 
+The link always runs the current code and models; restart the script after pulling changes. To check which
+text model it uses, open `<link>/health`: it should show `"text_model": "deberta-common-realdocs"` (the model
+fine-tuned on real documents). If those weights are missing, it falls back to `deberta-common`.
+
 - **Cost and setup.** No account or payment is needed.
   - Where the network allows it, the link is a Cloudflare quick tunnel (`brew install cloudflared`).
   - Otherwise it is localhost.run over SSH. Campus networks often block Cloudflare's tunnel port.

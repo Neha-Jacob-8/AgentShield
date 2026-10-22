@@ -76,6 +76,10 @@ class TestConsole(unittest.TestCase):
     def test_page_health_samples(self):
         self.assertIn("Inspect a tool response", self.c.get("/").text)
         self.assertEqual(self.c.get("/health").json(), {"status": "ok", "mode": "live"})
+        rt = runtime()
+        rt._predictor.deberta_model_path = ROOT / "models" / "deberta-common-realdocs"   # a shared link reports its model
+        self.assertEqual(TestClient(create_app(rt, warmup=False)).get("/health").json()["text_model"],
+                         "deberta-common-realdocs")
         samples = {s["id"]: s for s in self.c.get("/api/samples").json()}
         self.assertEqual(list(samples), [s.id for s in SAMPLES])
         self.assertTrue(samples["clinic-report"]["available"])
