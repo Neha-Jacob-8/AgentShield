@@ -496,6 +496,7 @@ def record(path: str, cats_config: str, embedder: Optional[str] = None, public: 
     ds = DemoState(AgentShieldRuntime(cats_config=cfg))
     record_steps(ds, public, verbose=False)        # untimed first pass: loads the models and warms every code path
     ds.reset()
+    ds.rt.scorer.clear_cache()                     # the recorded timings must include the model, not cached scores
     rec = record_steps(ds, public)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(rec, default=str), encoding="utf-8")

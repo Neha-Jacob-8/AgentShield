@@ -310,6 +310,7 @@ class ContentFilterReport:
     comments: List[str] = field(default_factory=list)
     unicode: Optional[UnicodeFilterResult] = None
     encoded_payloads: List[EncodedPayload] = field(default_factory=list)
+    detection_lines: str = ""          # detection_text with its line breaks (headings stay separate sentences)
 
     def to_dict(self) -> Dict:
         return {
@@ -353,4 +354,5 @@ def filter_content(text: str, domain: str = "text") -> ContentFilterReport:
         comments=comments,
         unicode=unicode_report,
         encoded_payloads=payloads,
+        detection_lines=uni_full.detection_text,
     )

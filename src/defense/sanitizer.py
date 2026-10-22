@@ -5,6 +5,8 @@ Response Sanitizer (methodology section 4.7): remove adversarial segments, keep 
                                     (up to hard_split_chars; longer runs are split)
   Step 2  score every segment       max(DeBERTa probability, signature score)
   Step 3  classify                  < retain_below: retain | in between: flag (retained) | > remove_above: remove
+                                    (instruction gate: a segment above remove_above on the model's score alone
+                                    that reads like no instruction is flagged instead, see cues.py)
   Step 4  reconstruct               retained segments in original order, original separators kept
   Step 5  post-check                done by the runtime (it re-runs detection + CATS on the result)
 
@@ -21,6 +23,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence
 
 from .config import DefenseConfig
+from .cues import instruction_cues
 from .filters import decode_inline, filter_unicode
 from .patterns import scan
 
@@ -35,15 +38,27 @@ SegmentScorer = Callable[[Sequence[str]], List[float]]
 class ModelSegmentScorer:
     """Batched malicious-probability scoring with an existing PromptInjectionPredictor."""
 
+    CACHE_SIZE = 20000                 # the instruction gate, the sanitizer and the post-check score the same segments
+
     def __init__(self, text_predictor, max_length: int = 256, batch_size: int = 32):
         self.tp = text_predictor
         self.max_length = max_length
         self.batch_size = batch_size
+        self._cache: Dict[str, float] = {}
 
     def __call__(self, texts: Sequence[str]) -> List[float]:
         texts = list(texts)
-        if not texts:
-            return []
+        todo = list(dict.fromkeys(t for t in texts if t not in self._cache))
+        if todo:
+            if len(self._cache) + len(todo) > self.CACHE_SIZE:
+                self._cache.clear()
+            self._cache.update(zip(todo, self._score(todo)))
+        return [self._cache[t] for t in texts]
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def _score(self, texts: List[str]) -> List[float]:
         tp = self.tp
         if hasattr(tp, "tokenizer") and hasattr(tp, "model"):
             import torch
@@ -209,12 +224,16 @@ class SegmentVerdict:
     pattern_score: float
     signatures: List[str]
     action: str                        # retained | flagged | removed
+    cues: Optional[List[str]] = None   # instruction cues (only checked where the instruction gate applies)
 
     def to_dict(self) -> Dict:
-        return {"text": self.text[:200], "score": round(self.score, 4),
-                "model_score": None if self.model_score is None else round(self.model_score, 4),
-                "pattern_score": round(self.pattern_score, 4), "signatures": self.signatures,
-                "action": self.action}
+        d = {"text": self.text[:200], "score": round(self.score, 4),
+             "model_score": None if self.model_score is None else round(self.model_score, 4),
+             "pattern_score": round(self.pattern_score, 4), "signatures": self.signatures,
+             "action": self.action}
+        if self.cues is not None:
+            d["cues"] = self.cues
+        return d
 
 
 @dataclass
@@ -268,15 +287,20 @@ class ResponseSanitizer:
             prefix = MODEL_PREFIX.get(domain, "")
             model_scores = list(self.model_scorer([prefix + v for v in views]))
 
+        gate = domain in cfg.instruction_gate_domains
         verdicts, keep = [], []
-        for seg, rep, ms in zip(segs, reports, model_scores):
+        for seg, view, rep, ms in zip(segs, views, reports, model_scores):
             score = max(rep.score, ms or 0.0)
-            if score > cfg.segment_remove_above:
+            cues = instruction_cues(view) if gate and score >= cfg.segment_retain_below else []
+            if score > cfg.segment_remove_above and gate and rep.score <= cfg.segment_remove_above and not cues:
+                action = "flagged"            # only the model's score, and it is not an instruction
+            elif score > cfg.segment_remove_above:
                 action = "removed"
             elif score >= cfg.segment_retain_below:
                 action = "flagged"
             else:
                 action = "retained"
-            verdicts.append(SegmentVerdict(seg.text, score, ms, rep.score, [m.id for m in rep.matches], action))
+            verdicts.append(SegmentVerdict(seg.text, score, ms, rep.score, [m.id for m in rep.matches], action,
+                                           cues if gate else None))
             keep.append(action != "removed")
         return SanitizationResult(reconstruct(segs, keep), verdicts, use_model, len(text or ""))

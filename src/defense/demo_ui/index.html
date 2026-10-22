@@ -920,6 +920,7 @@ function buildFlow(isImage, intro) {
   $("#d-detect").innerHTML = `<table class="mini"><tbody>
       <tr><td>Attack signatures</td><td id="sv-sig" class="muted">…</td><td id="sn-sig" class="muted"></td></tr>
       <tr><td>DeBERTa (text)</td><td id="sv-deb" class="muted">…</td><td><div class="meter"><i id="sb-deb"></i></div></td></tr>
+      <tr id="r-gate" class="hidden"><td>Not instructions</td><td id="sv-gate"></td><td id="sn-gate" class="muted"></td></tr>
       <tr id="r-old" class="hidden"><td>Previous pipeline (first 256 tokens only)</td><td id="sv-old"></td><td class="muted">read only the start of the document</td></tr>
       ${isImage ? `<tr><td>Vision model (pixels)</td><td id="sv-vit" class="muted">…</td><td><div class="meter"><i id="sb-vit"></i></div></td></tr>` : ""}</tbody></table>`;
   $("#d-decision").innerHTML = `<div id="dec-src" class="muted"></div>
@@ -1074,7 +1075,14 @@ async function inspect(requestFn, title, fromEl) {
     $("#sv-sig").className = pat.score >= .7 ? "text-bad" : "";
     $("#sn-sig").textContent = pat.categories.map((c) => c.replace(/_/g, " ")).join(", ");
     setBar("deb", T);
-    if (ex.old_pipeline_text_threat !== undefined && T !== null && Math.abs(ex.old_pipeline_text_threat - T) > .05) {
+    const gate = det.instruction_gate, Tm = gate ? gate.text_threat_before : T;
+    if (gate) {                    // sentences the model scored high but that give no instruction (captions, headings)
+      const n = gate.left_out.length;
+      $("#r-gate").classList.remove("hidden"); $("#r-gate").classList.add("reveal-row");
+      $("#sv-gate").textContent = `${n} sentence${n > 1 ? "s" : ""}`;
+      $("#sn-gate").textContent = `scored high but give no instruction, so not counted (${f2(Tm)} with them)`;
+    }
+    if (ex.old_pipeline_text_threat !== undefined && Tm !== null && Math.abs(ex.old_pipeline_text_threat - Tm) > .05) {
       $("#r-old").classList.remove("hidden"); $("#r-old").classList.add("reveal-row");
       $("#sv-old").className = "text-" + tone(ex.old_pipeline_text_threat); countUp($("#sv-old"), ex.old_pipeline_text_threat, {decimals: 2, ms: 650});
     }

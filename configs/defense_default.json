@@ -33,6 +33,8 @@
     "pdf",
     "text"
   ],
+  "instruction_gate_domains": [],
+  "instruction_gate_min_score": 0.5,
   "adaptive": true,
   "suspicion_decay": 0.85,
   "weight_reject": 1.0,

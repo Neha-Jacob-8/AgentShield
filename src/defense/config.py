@@ -57,6 +57,15 @@ class DefenseConfig:
                                           # never | normal_level (only at normal defense level) | always
     salvage_domains: List[str] = field(default_factory=lambda: ["web", "pdf", "text"])  # never images
 
+    # ---- instruction gate (src/defense/cues.py) --------------------------------
+    instruction_gate_domains: List[str] = field(default_factory=list)
+                                          # e.g. ["pdf", "text"]: a sentence that DeBERTa alone scores
+                                          # >= instruction_gate_min_score but that has no instruction cue is
+                                          # reported, not removed, and left out of the document threat.
+                                          # Off: with the real-document model it let 6 more of 310 validation
+                                          # attacks through and kept only 1 more of 28 real papers from a block
+    instruction_gate_min_score: float = 0.50
+
     # ---- adaptive defense ------------------------------------------------------
     adaptive: bool = True
     suspicion_decay: float = 0.85         # per new response from the same source
@@ -93,7 +102,7 @@ class DefenseConfig:
 
         for name in ("escalate_pattern_score", "concealed_model_threshold", "concealed_pattern_threshold",
                      "segment_retain_below", "segment_remove_above", "suspicion_decay",
-                     "min_threshold_gap", "min_accept_below"):
+                     "min_threshold_gap", "min_accept_below", "instruction_gate_min_score"):
             unit(name, getattr(self, name))
         if not self.segment_retain_below <= self.segment_remove_above:
             raise ValueError("segment_retain_below must be <= segment_remove_above")

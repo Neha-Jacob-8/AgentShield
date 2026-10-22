@@ -46,7 +46,8 @@ from .filters import filter_content, filter_unicode
 from .interceptor import InterceptedResponse, ToolResponse, intercept, source_key, utc_now
 from .patterns import scan
 from .policy import AdaptiveState, DecisionEngine, Evidence, PolicyDecision
-from .sanitizer import MODEL_PREFIX, ModelSegmentScorer, ResponseSanitizer
+from .cues import instruction_cues
+from .sanitizer import MODEL_PREFIX, ModelSegmentScorer, ResponseSanitizer, group_segments, reconstruct, segment_text
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CATS_CONFIG = PROJECT_ROOT / "configs" / "cats_runtime.json"
@@ -186,6 +187,25 @@ class AgentShieldRuntime:
         return float(self.scorer.score_document(text, MODEL_PREFIX.get(domain, ""), strategy,
                                                 cfg.window_tokens, cfg.window_stride, cfg.max_windows))
 
+    def gated_text_threat(self, text: str, domain: str):
+        """Text threat after the instruction gate (src/defense/cues.py): sentences that DeBERTa alone scores at or
+        above instruction_gate_min_score but that carry no instruction cue (figure captions, headings) are left
+        out and the rest is scored again. Returns (threat, threat before the gate, sentences left out)."""
+        cfg = self.config
+        raw = self.text_threat(text, domain)
+        if raw is None or domain not in cfg.instruction_gate_domains or raw < cfg.min_accept_below:
+            return raw, raw, []
+        segs = group_segments(segment_text(text, cfg.hard_split_chars), cfg.max_segments)
+        scores = self.scorer([MODEL_PREFIX.get(domain, "") + s.text for s in segs])
+        keep = [not (m >= cfg.instruction_gate_min_score and scan(s.text).score <= cfg.segment_remove_above
+                     and not instruction_cues(s.text)) for s, m in zip(segs, scores)]
+        if all(keep):
+            return raw, raw, []
+        left_out = [{"text": s.text[:200], "model_score": _r(m)} for s, m, k in zip(segs, scores, keep) if not k]
+        rest = reconstruct(segs, keep)
+        gated = self.text_threat(rest, domain) if rest.strip() else 0.0
+        return min(raw, gated), raw, left_out
+
     # ---- main entry point -------------------------------------------------------------------
     def process(self, response: Union[ToolResponse, Dict[str, Any]]) -> SecureDelivery:
         resp = response if isinstance(response, ToolResponse) else ToolResponse.from_dict(response)
@@ -238,7 +258,7 @@ class AgentShieldRuntime:
         analysis["content_filter"] = fr.to_dict()
 
         # 2. detection ----------------------------------------------------------------------
-        t_threat = self.text_threat(fr.detection_text, dom)
+        t_threat, t_model, left_out = self.gated_text_threat(fr.detection_lines or fr.detection_text, dom)
         pr = scan(fr.detection_text)
         ev = Evidence(pattern_score=pr.score, signatures=[m.id for m in pr.matches],
                       obfuscated=bool(fr.unicode and fr.unicode.obfuscated))
@@ -258,6 +278,8 @@ class AgentShieldRuntime:
                                  "patterns": pr.to_dict(), "concealed": concealed,
                                  "long_text_strategy": cfg.long_text_strategy if dom in cfg.window_domains
                                  else "truncate"}
+        if left_out:
+            analysis["detection"]["instruction_gate"] = {"text_threat_before": _r(t_model), "left_out": left_out}
         analysis["evidence"] = ev.to_dict()
 
         # 3. CATS -----------------------------------------------------------------------------
@@ -279,7 +301,7 @@ class AgentShieldRuntime:
             content = san.sanitized_text
             if cfg.post_check:
                 residual_text = filter_unicode(content).detection_text
-                t_post = self.text_threat(residual_text, dom)
+                t_post = self.gated_text_threat(residual_text, dom)[0]
                 p_post = scan(residual_text).score
                 post = self.cats.assess(domain=dom, text_threat=t_post, visual_threat=None,
                                         content=content or None, user_intent=intent,
