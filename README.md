@@ -178,6 +178,7 @@ to make final Accept / Sanitize / Reject decisions.
 | **Combined Dataset (`combined/`)** | **COMPLETED & OPTIMIZED** | `src/data/combine_datasets.py` → `data/processed/combined/` (4,494 train / 1,018 val / 988 test; 1:1 intra-domain class balanced, 0 label conflicts, 377 empty-OCR textless samples filtered) |
 | **Direct Image Vision Model (ViT)** | **TRAINED & EVALUATED** | `src/vision/train_vision.py` → `models/vision-image/` (Test F1: 97.13%, Recall: 100%, 0 FN) |
 | **Common DeBERTa Model (v3-base)** | **TRAINED & EVALUATED** | `src/training/train_deberta.py` → `models/deberta-common/` (Test F1: 90.14%) |
+| **DeBERTa fine-tuned on real documents** | **TRAINED & EVALUATED** (runtime default) | `src/data/build_realdocs.py` + `train_deberta.py` → `models/deberta-common-realdocs/` (Test F1: 91.75%; real papers delivered 25 of 28 instead of 0); see `docs/DEFENSE_INTEGRATION.md` §14 |
 | **CATS (Trust Scoring Engine)** | **IMPLEMENTED & EVALUATED** | `src/cats/` — baseline thresholds in `configs/cats_default.json`; validation-tuned image profile used by the runtime in `configs/cats_runtime.json`; results in `docs/CATS_DOCUMENTATION.md` §13–15 |
 | **Defense & Integration (Security Runtime)** | **IMPLEMENTED & EVALUATED** | `src/defense/` — adaptive decision engine, content filtering, response sanitizer, runtime / CLI / HTTP service; see `docs/DEFENSE_INTEGRATION.md` |
 
@@ -214,6 +215,14 @@ The unified multi-modal text dataset (`data/processed/combined/`) features three
   - **PDF Text**: **90.75% Accuracy**, **94.51% Precision**, **86.43% Recall**, **F1: 90.29%** (up from 86.67%)
   - **Image OCR**: **84.52% Accuracy** (up from 65.50%), **92.26% Precision** (up from 67.47%), **85.12% Recall**, **F1: 88.54%** (up from 79.15%)
 
+### DeBERTa fine-tuned on real documents (`models/deberta-common-realdocs/`, used by the runtime)
+The common model had never seen a real document and blocked ordinary lecture notes and research papers. It was
+fine-tuned further for one epoch on 108 open-access arXiv papers (benign text, and text with BIPIA attacks
+inserted) together with the combined training set. Same test split as above:
+- **Overall Test F1**: **91.75%** (precision 92.27%, recall 91.24%; `TP=406`, `TN=509`, `FP=34`, `FN=39`)
+- **Web Text F1**: **96.05%**, **PDF Text F1**: **91.73%**, **Image OCR F1**: **89.82%**
+- **Unseen research papers and attacks** (1,058 records): F1 **94.13%** (the common model: 72.46%)
+
 ### Training settings of the shipped models
 Taken from each model's `training_and_test_results.json`; both were trained on CPU and differ from the script defaults.
 - **DeBERTa**: 1 epoch, learning rate 2e-5, batch 4 × gradient accumulation 2, `max_length` 256, weight decay 0.01.
@@ -249,7 +258,7 @@ python -m src.defense.api                                                       
 python -m src.defense.runtime --pdf report.txt --intent "Summarise the report"   # one response
 python -m src.defense.demo --verbose                                              # a full agent session
 python -m src.defense.server --port 8765                                          # HTTP service
-python -m unittest tests.test_api tests.test_defense tests.test_cats             # 136 tests
+python -m unittest tests.test_api tests.test_defense tests.test_cats             # 142 tests
 ```
 
 `deploy/public_link.sh` shares the console from the laptop through a free public https link. To present the project, follow [`docs/DEMO.md`](docs/DEMO.md). You drop a PDF, web page, screenshot or email into the browser console and watch each pipeline step inspect it. The guide includes ready-made samples in [`demo_samples/`](demo_samples), a 7-minute run order, a fallback replay mode, and answers to likely examiner questions.
@@ -258,7 +267,7 @@ python -m unittest tests.test_api tests.test_defense tests.test_cats            
 
 ## 9. Data and Model Weights
 
-The datasets (`data/`, ~3.9 GB) and the trained model weights are not stored in this repository because of GitHub's file-size limits. The model configs, tokenizer files and evaluation results are included.
+The datasets (`data/`, ~3.9 GB) and the trained model weights are not stored in this repository because of GitHub's file-size limits. The model configs, tokenizer files and evaluation results are included. Without the weights of `models/deberta-common-realdocs`, the runtime falls back to `models/deberta-common`.
 
 To run training, inference or evaluation, place the files at:
 
