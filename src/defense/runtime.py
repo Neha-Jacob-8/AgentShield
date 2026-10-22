@@ -145,6 +145,13 @@ class AgentShieldRuntime:
             from src.predict_pipeline import AgentShieldPredictor
             kw = dict(self._predictor_kwargs)
             kw.setdefault("device", resolve_device(self.config.device))
+            if not kw.get("deberta_model_path"):
+                path = PROJECT_ROOT / self.config.text_model
+                if not any((path / w).exists() for w in ("model.safetensors", "pytorch_model.bin")):
+                    print(f"[AgentShield] {self.config.text_model} not found: using models/deberta-common",
+                          file=sys.stderr)
+                    path = PROJECT_ROOT / "models" / "deberta-common"
+                kw["deberta_model_path"] = path
             self._predictor = AgentShieldPredictor(**kw)
         return self._predictor
 

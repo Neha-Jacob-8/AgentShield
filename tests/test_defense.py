@@ -366,6 +366,13 @@ class TestInstructionGate(unittest.TestCase):
         self.assertNotIn("attacker", d.secure_content)
         self.assertIn("is shown in", d.secure_content)
 
+    def test_text_model_falls_back_to_the_original(self):
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            rt = AgentShieldRuntime(config=DefenseConfig(text_model="models/missing-model", device="cpu"))
+            self.assertEqual(rt.predictor.deberta_model_path, ROOT / "models" / "deberta-common")
+        self.assertIn("not found", err.getvalue())
+        self.assertIsNone(rt.predictor._text_predictor)                 # nothing is loaded until it is used
+
     def test_gate_is_off_by_default(self):
         self.assertEqual(DefenseConfig().instruction_gate_domains, [])
         d = caption_runtime(instruction_gate_domains=[]).inspect_pdf(LECTURE, tool_name="pdf_reader")

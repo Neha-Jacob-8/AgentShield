@@ -24,6 +24,10 @@ LONG_TEXT_STRATEGIES = ("max_window", "truncate")
 @dataclass
 class DefenseConfig:
     # ---- detection --------------------------------------------------------------
+    text_model: str = "models/deberta-common-realdocs"  # DeBERTa directory (relative to the project root);
+                                          # the original deberta-common is used when it is missing. Fine-tuned
+                                          # further on real documents (src/data/build_realdocs.py), because
+                                          # deberta-common blocked every real benign paper on validation
     max_length: int = 256                 # DeBERTa tokens; the published test results used 256
     device: Optional[str] = "auto"        # "auto" = cuda > mps > cpu
     segment_batch_size: int = 32

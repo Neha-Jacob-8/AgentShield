@@ -1,5 +1,6 @@
 {
   "_comment": "Defense & Integration runtime policy (src/defense). Settings marked in docs/DEFENSE_INTEGRATION.md as validation-chosen (long_text_strategy / window_domains, post_check_mode, salvage_rejects) were selected on the VALIDATION split before the test split was evaluated once. Sanitizer bands 0.30 / 0.60 follow methodology section 4.7. CATS thresholds come from configs/cats_runtime.json.",
+  "text_model": "models/deberta-common-realdocs",
   "max_length": 256,
   "device": "auto",
   "segment_batch_size": 32,

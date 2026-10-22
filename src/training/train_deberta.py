@@ -318,7 +318,10 @@ def run_training_pipeline(args):
     test_enc = tokenizer(test_texts, truncation=True, max_length=args.max_length)
     tokenized_test = TextDataset(test_enc, test_labels)
 
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    # Fixed-length padding keeps one tensor shape per batch: on Apple-silicon GPUs (MPS) every new shape
+    # adds cached memory, and dynamic padding ran out of memory on a 24 GB machine.
+    data_collator = (DataCollatorWithPadding(tokenizer=tokenizer, padding="max_length", max_length=args.max_length)
+                     if args.pad_to_max_length else DataCollatorWithPadding(tokenizer=tokenizer))
 
     # --------------------------------------------------------------
     # Model Initialization
@@ -630,6 +633,8 @@ def parse_args():
                         help="FP16 mixed precision when CUDA is used (default: on; --no-fp16 turns it off)")
     parser.add_argument("--gradient_checkpointing", action="store_true", default=False, help="Enable gradient checkpointing (CUDA only)")
     parser.add_argument("--no_cuda", action="store_true", help="Force CPU mode even if CUDA is available")
+    parser.add_argument("--pad_to_max_length", action="store_true",
+                        help="Pad every batch to --max_length (steadier memory on Apple-silicon GPUs)")
 
     # Quick Testing & Subsetting
     parser.add_argument("--max_train_samples", type=int, default=None, help="Optional maximum train samples to load")
