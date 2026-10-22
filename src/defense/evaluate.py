@@ -13,6 +13,8 @@ Parts (select with --parts):
   adaptive   (a) one source sends 5 different attacks in a row: delivery rate per attempt,
                  static vs adaptive policy
              (b) cost: benign documents from other sources while the session is on alert
+  realdocs   real research papers (data/processed/realdocs, src/data/build_realdocs.py), each once as it is and
+             once with one BIPIA attack inserted: what reaches the agent
   sanitizer  known attack sentences inserted into real benign documents (start / middle / end):
              removal rate, benign sentence retention, exact restoration
 """
@@ -28,6 +30,7 @@ import argparse
 import dataclasses
 import json
 import random
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -100,18 +103,19 @@ def part_detection(rt: AgentShieldRuntime, rows, log) -> Dict[str, Any]:
     cfg = rt.config
     for dom in sorted({r["domain"] for r in rows}):
         sub = [r for r in rows if r["domain"] == dom]
-        y, t_tr, t_win, pat = [], [], [], []
+        y, t_tr, t_win, t_gate, pat = [], [], [], [], []
         for i, r in enumerate(sub, 1):
             _, body = split_pdf_text(r["text"]) if dom == "pdf" else (None, strip_domain_prefix(r["text"]))
             text = " ".join(body.split())
             y.append(r["label"])
             if not text:
-                t_tr.append(0.0); t_win.append(0.0); pat.append(0.0)
+                t_tr.append(0.0); t_win.append(0.0); t_gate.append(0.0); pat.append(0.0)
                 continue
             prefix = MODEL_PREFIX[dom]
             t_tr.append(rt.scorer.score_document(text, prefix, "truncate"))
             t_win.append(rt.scorer.score_document(text, prefix, "max_window", cfg.window_tokens, cfg.window_stride,
                                                   cfg.max_windows))
+            t_gate.append(rt.gated_text_threat(body, dom)[0])      # the gate needs the line breaks
             pat.append(scan(text).score)
             if i % 200 == 0:
                 log(f"  detection [{dom}] {i}/{len(sub)}")
@@ -121,8 +125,14 @@ def part_detection(rt: AgentShieldRuntime, rows, log) -> Dict[str, Any]:
             "signatures >= 0.70": [int(x >= 0.7) for x in pat],
             "max-window >= 0.5 OR signatures >= 0.70": [int(a >= 0.5 or b >= 0.7) for a, b in zip(t_win, pat)],
         }
+        if dom in cfg.instruction_gate_domains:
+            rules["max-window + instruction gate >= 0.5"] = [int(x >= 0.5) for x in t_gate]
         res[dom] = {name: binary_metrics(y, p) for name, p in rules.items()}
         res[dom]["roc_auc"] = {"truncated": roc_auc(y, t_tr), "max_window": roc_auc(y, t_win)}
+        if dom in cfg.instruction_gate_domains:
+            res[dom]["roc_auc"]["instruction_gate"] = roc_auc(y, t_gate)
+            res[dom]["instruction_gate_lowered"] = {
+                lab: sum(1 for a, g, t in zip(t_win, t_gate, y) if t == lab and a >= 0.5 > g) for lab in (0, 1)}
         res[dom]["signature_only_catches"] = sum(1 for a, b, t in zip(t_win, pat, y) if t == 1 and a < 0.5 and b >= 0.7)
         res[dom]["signature_false_alarms"] = sum(1 for b, t in zip(pat, y) if t == 0 and b >= 0.7)
     return res
@@ -152,6 +162,7 @@ def run_records(rt: AgentShieldRuntime, responses: List[ToolResponse], labels: L
                "cats_action": a.get("policy", {}).get("cats_action"), "post_check": a.get("post_check"),
                "removed": (a.get("sanitization") or {}).get("removed"),
                "remaining_chars": len(d.secure_content.strip()), "ms": a.get("timing_ms"),
+               "delivered": d.secure_content if d.action_taken != "REJECT" else "",
                "sanitized_chars": (a.get("sanitization") or {}).get("retained_char_fraction", 0) or 0,
                "text_threat": (a.get("detection") or {}).get("text_threat")}
         row.update(_derive_variants(row))
@@ -327,6 +338,30 @@ def part_sanitizer(rt_factory, rows, log, payload_sets: Dict[str, List[str]]) ->
     return res
 
 
+def part_realdocs(rt_factory, docs, log) -> Dict[str, Any]:
+    rt = rt_factory(adaptive=False)
+    rows = run_records(rt, [ToolResponse(content=d["text"], modality="pdf", tool_name="pdf_reader") for d in docs],
+                       [d["label"] for d in docs], ["pdf"] * len(docs), log, "realdocs")
+    out = summarise_runtime(rows, rows, rt.config)["all"]
+    keep = [k for k in out if k.startswith("runtime (") or k in ("latency_ms", "malicious_delivered_after_salvage")]
+    res = {k: out[k] for k in keep}
+    res["documents"] = len(docs)
+    # the inserted attack is known, so check whether any of it reached the agent
+    sanitized = [(d, r) for d, r in zip(docs, rows) if d["label"] == 1 and r["action"] == "SANITIZE" and d.get("attack")]
+    res["attacks_sanitized"] = {
+        "count": len(sanitized),
+        "attack_removed": sum(1 for d, r in sanitized if not _attack_left(d["attack"], r["delivered"])),
+    }
+    return res
+
+
+def _attack_left(attack: str, delivered: str) -> bool:
+    """True when a sentence of the attack (or a code line of it) is still in the delivered text."""
+    flat = " ".join(delivered.split())
+    parts = [p.strip() for p in re.split(r"(?<=[.!?:])\s+|\n", attack) if len(p.strip()) >= 12]
+    return any(" ".join(p.split()) in flat for p in parts)
+
+
 def dataset_payloads(split_rows) -> List[str]:
     """Real web injection strings (label 1) from the SAME held-out split: never seen in training."""
     out = []
@@ -348,8 +383,12 @@ def main(argv=None):
     ap.add_argument("--embedder", choices=["sentence-transformers", "lexical", "auto"])
     ap.add_argument("--cats_config", default=str(PROJECT_ROOT / "configs" / "cats_runtime.json"),
                     help="CATS config used by the runtime (default: configs/cats_runtime.json)")
+    ap.add_argument("--deberta", help="DeBERTa model directory (default: models/deberta-common)")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=JSON",
+                    help="override a defense setting, e.g. --set 'instruction_gate_domains=[]'")
     ap.add_argument("--out", help="write the report JSON here")
     a = ap.parse_args(argv)
+    base_over = {k: json.loads(v) for k, v in (s.split("=", 1) for s in a.set)}
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
@@ -363,9 +402,9 @@ def main(argv=None):
 
     def rt_factory(**over):
         """Runtime variants share one predictor (models load once) and one CATS engine."""
-        cfg = dataclasses.replace(DefenseConfig(), **over).validate()
+        cfg = dataclasses.replace(DefenseConfig(), **{**base_over, **over}).validate()
         if not shared:
-            rt = AgentShieldRuntime(config=cfg, cats_config=cats_cfg)
+            rt = AgentShieldRuntime(config=cfg, cats_config=cats_cfg, deberta_model_path=a.deberta)
             shared["pred"], shared["cats"] = rt.predictor, rt.cats
             return rt
         return AgentShieldRuntime(predictor=shared["pred"], cats_engine=shared["cats"], config=cfg)
@@ -377,7 +416,8 @@ def main(argv=None):
         rows, img_rows = rnd.sample(rows, min(a.limit, len(rows))), rnd.sample(img_rows, min(a.limit, len(img_rows)))
     parts = [p.strip() for p in a.parts.split(",") if p.strip()]
     report: Dict[str, Any] = {"split": a.split, "records": len(rows), "image_records": len(img_rows),
-                              "config": DefenseConfig().to_dict(), "cats_config": cats_cfg.to_dict(), "parts": {}}
+                              "config": dataclasses.replace(DefenseConfig(), **base_over).to_dict(),
+                              "cats_config": cats_cfg.to_dict(), "parts": {}}
     rt0 = rt_factory()
     if "detection" in parts:
         log("detection ...")
@@ -388,6 +428,10 @@ def main(argv=None):
         report["parts"]["images"] = part_images(rt_factory, img_rows, log)
     if "adaptive" in parts:
         report["parts"]["adaptive"] = part_adaptive(rt_factory, rows, log, a.seed)
+    docs_path = PROJECT_ROOT / "data" / "processed" / "realdocs" / f"docs_{a.split}.jsonl"
+    if "realdocs" in parts and docs_path.exists():
+        log("real documents ...")
+        report["parts"]["realdocs"] = part_realdocs(rt_factory, load_jsonl(docs_path), log)
     if "sanitizer" in parts:
         sets = {"handcrafted_payloads": HANDCRAFTED_PAYLOADS, "dataset_web_payloads": dataset_payloads(rows)}
         report["parts"]["sanitizer"] = part_sanitizer(rt_factory, rows, log, sets)
@@ -432,6 +476,13 @@ def print_report(rep: Dict[str, Any]) -> None:
                         print(_fmt_outcome(name, t))
                 print(f"   malicious delivered after salvage: {d['malicious_delivered_after_salvage']}"
                       f"   latency ms: {d.get('latency_ms')}")
+    if "realdocs" in P:
+        rd = P["realdocs"]
+        print(f"\n## Real documents ({rd['documents']}: each paper as it is and with one inserted attack)")
+        for name, t in rd.items():
+            if isinstance(t, dict) and "flag_metrics" in t:
+                print(_fmt_outcome(name, t))
+        print(f"   latency ms: {rd.get('latency_ms')}")
     if "adaptive" in P:
         ad = P["adaptive"]
         print(f"\n## Adaptive defense: {ad['sequences']} sources x {ad['sequence_length']} consecutive attacks")
