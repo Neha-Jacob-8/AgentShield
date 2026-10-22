@@ -522,10 +522,10 @@ textarea.paste { width: 100%; min-height: 200px; padding: 10px 12px; border-radi
   </div>
 
   <div class="tiles">
-    <div class="tile seen-up" style="--i:0"><div class="t-value" data-count="0.947" data-decimals="3">0.947</div><div class="t-label">PDF detection F1</div><div class="t-sub">was 0.860</div></div>
+    <div class="tile seen-up" style="--i:0"><div class="t-value" data-count="0.968" data-decimals="3">0.968</div><div class="t-label">PDF detection F1</div><div class="t-sub">was 0.860</div></div>
     <div class="tile seen-up" style="--i:1"><div class="t-value" data-count="97.1" data-decimals="1" data-suffix="%">97.1%</div><div class="t-label">Screenshot detection F1</div><div class="t-sub">recall 100%</div></div>
-    <div class="tile seen-up" style="--i:2"><div class="t-value" data-count="3.6" data-decimals="1" data-suffix="%">3.6%</div><div class="t-label">Repeat attacks getting through</div><div class="t-sub">43.6% without adapting</div></div>
-    <div class="tile seen-up" style="--i:3"><div class="t-value" data-count="88" data-suffix=" ms">88 ms</div><div class="t-label">Median time per PDF</div><div class="t-sub">web pages 27 ms</div></div>
+    <div class="tile seen-up" style="--i:2"><div class="t-value" data-count="3.6" data-decimals="1" data-suffix="%">3.6%</div><div class="t-label">Repeat attacks getting through</div><div class="t-sub">up to 61.8% without adapting</div></div>
+    <div class="tile seen-up" style="--i:3"><div class="t-value" data-count="52" data-suffix=" ms">52 ms</div><div class="t-label">Median time per PDF</div><div class="t-sub">web pages 25 ms</div></div>
   </div>
 
   <div class="box seen-up" style="margin-top:16px">
@@ -799,12 +799,12 @@ function simStart() { SIM_ON = true; requestAnimationFrame(() => { simLayout(); 
 function simStop() { SIM_ON = false; SIM_RUN++; $("#tab-ink").style.setProperty("--auto", 0); }
 
 /* adaptive-defense line chart (one axis, two series, crosshair tooltip, table view) */
-const ADAPTIVE = {attempts: [1, 2, 3, 4, 5], adaptive: [34.5, 7.3, 12.7, 5.5, 3.6], fixed: [34.5, 38.2, 43.6, 38.2, 43.6]};
+const ADAPTIVE = {attempts: [1, 2, 3, 4, 5], adaptive: [45.5, 1.8, 3.6, 0, 1.8], fixed: [45.5, 61.8, 58.2, 47.3, 47.3]};
 function buildChart() {
   const W = 940, H = 230, L = 44, R = 130, T = 12, B = 30, pw = W - L - R, ph = H - T - B;
-  const x = (i) => L + i * pw / 4, y = (p) => T + ph * (1 - p / 50);
+  const x = (i) => L + i * pw / 4, y = (p) => T + ph * (1 - p / 75);
   const path = (vals) => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
-  const grid = [0, 25, 50].map((g) => `<line class="${g ? "gridline" : "axisline"}" x1="${L}" x2="${L + pw}" y1="${y(g)}" y2="${y(g)}"/>
+  const grid = [0, 25, 50, 75].map((g) => `<line class="${g ? "gridline" : "axisline"}" x1="${L}" x2="${L + pw}" y1="${y(g)}" y2="${y(g)}"/>
     <text class="tick" x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${g}%</text>`).join("");
   const xt = ADAPTIVE.attempts.map((a, i) => `<text class="tick" x="${x(i)}" y="${H - 8}" text-anchor="middle">Attempt ${a}</text>`).join("");
   const dots = (vals, c) => vals.map((v, i) => `<circle class="dot" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="4" fill="var(${c})"/>`).join("");
@@ -813,8 +813,8 @@ function buildChart() {
       <path class="series" d="${path(ADAPTIVE.fixed)}" stroke="var(--series-2)"/>
       <path class="series" d="${path(ADAPTIVE.adaptive)}" stroke="var(--series-1)"/>
       ${dots(ADAPTIVE.fixed, "--series-2")}${dots(ADAPTIVE.adaptive, "--series-1")}
-      <text class="endlabel" x="${x(4) + 10}" y="${y(43.6) + 4}">Fixed 43.6%</text>
-      <text class="endlabel" x="${x(4) + 10}" y="${y(3.6) + 4}">Adaptive 3.6%</text>
+      <text class="endlabel" x="${x(4) + 10}" y="${y(47.3) + 4}">Fixed 47.3%</text>
+      <text class="endlabel" x="${x(4) + 10}" y="${y(1.8) + 4}">Adaptive 1.8%</text>
       <rect id="ad-hit" x="${L - 20}" y="${T}" width="${pw + 40}" height="${ph}" fill="transparent"/></svg><div class="tip" id="ad-tip"></div>`;
   $("#table-adaptive").innerHTML = `<thead><tr><th>Attempt</th><th>Fixed policy</th><th>Adaptive policy</th></tr></thead><tbody>` +
     ADAPTIVE.attempts.map((a, i) => `<tr><td>${a}</td><td>${ADAPTIVE.fixed[i]}%</td><td>${ADAPTIVE.adaptive[i]}%</td></tr>`).join("") + `</tbody>`;
